@@ -1,17 +1,30 @@
 BRIDGELAB - BUSINESS ANALYTICS REPORT
-=============================================
+==================================================
+
+DATA SUMMARY
+------------------------------
 Source records: 251
 Analyzed records: 248
-Total revenue (GHS): 41,730.93
+Excluded records: 3
 
-REVENUE BY BRANCH:
+KEY PERFORMANCE INDICATORS
+------------------------------
+Total revenue (GHS): 41,730.93
+Total units sold: 871
+Unique orders: 248
+Average order value (GHS): 168.27
+
+REVENUE BY BRANCH
+------------------------------
 branch
 Takoradi    10952.5900
 Kumasi      10589.7110
 Accra       10010.7715
 Tamale       9969.9910
+NaN           207.8675
 
-REVENUE BY PRODUCT:
+REVENUE BY PRODUCT
+------------------------------
 product
 Rice 5kg              11354.8425
 Bottled Water 12pk     6947.5175
@@ -22,14 +35,40 @@ Cooking Oil 1L         4176.8930
 Soap Pack              2581.9435
 Notebook               2202.1390
 
-REVENUE BY CHANNEL:
+REVENUE BY CATEGORY
+------------------------------
+category
+Grocery        19800.0110
+Household       8189.0190
+Beverages       6947.5175
+Electronics     4592.2445
+Stationery      2202.1390
+
+REVENUE BY SALES CHANNEL
+------------------------------
 channel
 WhatsApp    15907.9400
 Online      14430.2195
 In-Store    11392.7715
 
-MONTHLY REVENUE:
+MONTHLY REVENUE
+------------------------------
 month
 2026-07    14022.4975
 2026-08    13244.4505
 2026-09    14463.9830
+
+BUSINESS INSIGHTS
+------------------------------
+Highest revenue branch: Takoradi
+Highest revenue product: Rice 5kg
+Highest revenue sales channel: WhatsApp
+
+DATA QUALITY NOTES
+------------------------------
+3 source records were excluded.
+Exact duplicate rows were removed.
+Records with invalid essential revenue fields were excluded.
+Missing branch values remain in overall revenue totals.
+
+END OF REPORT
