@@ -1,0 +1,6 @@
+criterion,max_points,judging_guideline
+Accuracy and data quality,35,"Correct data cleaning, formulas, reconciliation, missing-value handling"
+Insights and reasoning,25,"Evidence-based trends, recommendations, appropriate uncertainty"
+Presentation,20,Legible charts and coherent audience-focused story
+Originality and independent understanding,10,"Thoughtful interpretation, ability to explain choices"
+Documentation and reproducibility,10,"Clear methodology, files, assumptions, sources/tools disclosed"
