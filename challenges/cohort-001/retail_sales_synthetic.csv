@@ -1,0 +1,252 @@
+order_id,order_date,branch,channel,product,category,quantity,unit_price_ghs,discount_pct
+ORD0001,2026-09-20,Kumasi,In-Store,Cooking Oil 1L,Grocery,1,40.98,10
+ORD0002,2026-07-14,Accra,In-Store,Cooking Oil 1L,Grocery,5,39.65,0
+ORD0003,2026-07-30,Tamale,In-Store,Rice 5kg,Grocery,5,118.8,0
+ORD0004,2026-08-27,Tamale,WhatsApp,Bottled Water 12pk,Beverages,1,50.15,15
+ORD0005,2026-08-05,Accra,WhatsApp,Soap Pack,Household,2,27.55,15
+ORD0006,2026-07-13,Accra,Online,Phone Charger,Electronics,3,73.08,5
+ORD0007,2026-08-28,Takoradi,Online,Cooking Oil 1L,Grocery,4,42.49,0
+ORD0008,2026-07-25,Takoradi,In-Store,Cooking Oil 1L,Grocery,1,40.72,10
+ORD0009,2026-07-30,Takoradi,In-Store,Cooking Oil 1L,Grocery,4,41.96,0
+ORD0010,2026-08-17,Accra,Online,Phone Charger,Electronics,2,73.1,10
+ORD0011,2026-09-20,Tamale,WhatsApp,Soap Pack,Household,5,27.21,10
+ORD0012,2026-08-04,Accra,In-Store,Notebook,Stationery,6,18.89,0
+ORD0013,2026-07-05,Takoradi,In-Store,Phone Charger,Electronics,4,71.15,0
+ORD0014,2026-09-22,Takoradi,In-Store,Laundry Detergent,Household,4,59.98,10
+ORD0015,2026-08-01,Tamale,WhatsApp,Bottled Water 12pk,Beverages,6,47.79,5
+ORD0016,2026-07-29,Accra,In-Store,Soap Pack,Household,5,26.65,0
+ORD0017,2026-07-20,Tamale,WhatsApp,Soap Pack,Household,6,28.49,0
+ORD0018,2026-09-15,Accra,Online,Laundry Detergent,Household,5,63.97,0
+ORD0019,2026-07-15,Tamale,In-Store,Bottled Water 12pk,Beverages,6,45.82,0
+ORD0020,2026-08-28,Kumasi,Online,Rice 5kg,Grocery,6,112.04,10
+ORD0021,2026-07-14,Kumasi,WhatsApp,Bottled Water 12pk,Beverages,6,48.92,5
+ORD0022,2026-07-21,Accra,WhatsApp,Rice 5kg,Grocery,5,115.4,0
+ORD0023,2026-08-09,Accra,In-Store,Notebook,Stationery,1,18.97,0
+ORD0024,2026-09-01,Tamale,Online,Cooking Oil 1L,Grocery,5,40.17,15
+ORD0025,2026-07-22,,Online,Bottled Water 12pk,Beverages,5,48.91,15
+ORD0026,2026-09-27,Takoradi,WhatsApp,Notebook,Stationery,6,17.85,0
+ORD0027,2026-09-05,Takoradi,In-Store,Laundry Detergent,Household,1,58.15,0
+ORD0028,2026-09-14,Accra,In-Store,Notebook,Stationery,5,16.94,0
+ORD0029,2026-07-09,Takoradi,Online,Rice 5kg,Grocery,3,115.79,0
+ORD0030,2026-09-01,Tamale,In-Store,Notebook,Stationery,5,18.61,0
+ORD0031,2026-08-30,Tamale,WhatsApp,Tea Pack,Grocery,2,33.34,0
+ORD0032,2026-08-24,Accra,In-Store,Tea Pack,Grocery,4,36.22,15
+ORD0033,2026-08-21,Tamale,In-Store,Phone Charger,Electronics,1,72.37,0
+ORD0034,2026-08-24,Accra,WhatsApp,Soap Pack,Household,3,27.23,0
+ORD0035,2026-09-09,Accra,In-Store,Cooking Oil 1L,Grocery,1,44.94,10
+ORD0036,2026-07-31,Tamale,In-Store,Soap Pack,Household,4,28.07,0
+ORD0037,2026-07-22,Tamale,WhatsApp,Tea Pack,Grocery,1,34.11,0
+ORD0038,2026-08-24,Accra,Online,Laundry Detergent,Household,2,58.71,0
+ORD0039,2026-09-08,Tamale,Online,Rice 5kg,Grocery,6,108.95,0
+ORD0040,2026-09-06,Kumasi,In-Store,Soap Pack,Household,1,26.61,5
+ORD0041,2026-09-15,Accra,Online,Cooking Oil 1L,Grocery,6,40.76,15
+ORD0042,2026-08-01,Takoradi,WhatsApp,Rice 5kg,Grocery,5,114.37,0
+ORD0043,2026-07-27,Takoradi,WhatsApp,Phone Charger,Electronics,2,74.36,0
+ORD0044,2026-08-10,Accra,In-Store,Cooking Oil 1L,Grocery,1,42.87,0
+ORD0045,2026-09-07,Takoradi,In-Store,Notebook,Stationery,5,17.23,0
+ORD0046,2026-08-01,Takoradi,Online,Phone Charger,Electronics,3,74.77,0
+ORD0047,2026-09-22,Accra,In-Store,Rice 5kg,Grocery,6,116.39,15
+ORD0048,2026-08-03,Takoradi,WhatsApp,Cooking Oil 1L,Grocery,1,42.5,10
+ORD0049,2026-09-16,Takoradi,Online,Notebook,Stationery,6,17.4,0
+ORD0050,2026-09-01,Takoradi,In-Store,Bottled Water 12pk,Beverages,1,49.08,0
+ORD0051,2026-07-01,Kumasi,Online,Phone Charger,Electronics,2,80.05,10
+ORD0052,2026-08-26,Kumasi,Online,Tea Pack,Grocery,5,33.41,0
+ORD0053,2026-07-05,Kumasi,In-Store,Phone Charger,Electronics,5,71.94,5
+ORD0054,2026-08-09,Kumasi,Online,Phone Charger,Electronics,1,72.55,0
+ORD0055,2026-07-14,Kumasi,In-Store,Phone Charger,Electronics,5,74.46,15
+ORD0056,2026-07-21,Takoradi,WhatsApp,Soap Pack,Household,4,26.97,0
+ORD0057,2026-09-24,Accra,WhatsApp,Notebook,Stationery,3,18.76,0
+ORD0058,2026-07-05,Tamale,WhatsApp,Laundry Detergent,Household,2,62.77,0
+ORD0059,2026-08-09,Tamale,WhatsApp,Notebook,Stationery,2,18.46,0
+ORD0060,2026-08-05,Tamale,Online,Cooking Oil 1L,Grocery,3,42.98,0
+ORD0061,2026-09-07,Takoradi,In-Store,Phone Charger,Electronics,1,79.05,0
+ORD0062,2026-09-13,Takoradi,Online,Bottled Water 12pk,Beverages,1,48.84,0
+ORD0063,2026-08-10,Kumasi,WhatsApp,Tea Pack,Grocery,5,33.43,5
+ORD0064,2026-07-06,Kumasi,WhatsApp,Tea Pack,Grocery,1,37.11,5
+ORD0065,2026-08-25,Accra,Online,Cooking Oil 1L,Grocery,6,42.88,0
+ORD0066,2026-08-08,Takoradi,Online,Bottled Water 12pk,Beverages,6,47.16,0
+ORD0067,2026-07-17,Kumasi,Online,Notebook,Stationery,4,19.12,10
+ORD0068,2026-09-11,Takoradi,WhatsApp,Bottled Water 12pk,Beverages,4,50.32,5
+ORD0069,2026-07-27,Tamale,WhatsApp,Tea Pack,Grocery,5,35.88,5
+ORD0070,2026-08-26,Kumasi,Online,Notebook,Stationery,5,18.78,0
+ORD0071,2026-07-11,Takoradi,In-Store,Bottled Water 12pk,Beverages,5,49.07,10
+ORD0072,2026-07-31,Accra,In-Store,Bottled Water 12pk,Beverages,2,46.36,15
+ORD0073,2026-08-01,Tamale,WhatsApp,Laundry Detergent,Household,,62.39,15
+ORD0074,2026-09-19,Tamale,In-Store,Notebook,Stationery,6,17.82,10
+ORD0075,2026-07-19,Kumasi,Online,Rice 5kg,Grocery,1,114.46,15
+ORD0076,2026-09-05,Accra,WhatsApp,Laundry Detergent,Household,1,58.34,5
+ORD0077,2026-07-18,Takoradi,WhatsApp,Laundry Detergent,Household,6,64.11,5
+ORD0078,2026-09-17,Tamale,WhatsApp,Tea Pack,Grocery,5,36.98,0
+ORD0079,2026-08-03,Tamale,Online,Notebook,Stationery,6,18.71,0
+ORD0080,2026-07-31,Kumasi,WhatsApp,Bottled Water 12pk,Beverages,4,49.57,0
+ORD0081,2026-08-12,Kumasi,WhatsApp,Phone Charger,Electronics,5,71.85,0
+ORD0082,2026-09-27,Tamale,WhatsApp,Soap Pack,Household,6,26.55,0
+ORD0083,2026-09-08,Tamale,WhatsApp,Laundry Detergent,Household,4,58.01,0
+ORD0084,2026-09-13,Takoradi,WhatsApp,Rice 5kg,Grocery,5,115.23,0
+ORD0085,2026-08-19,Kumasi,WhatsApp,Tea Pack,Grocery,5,36.24,10
+ORD0086,2026-07-29,Takoradi,Online,Bottled Water 12pk,Beverages,4,45.3,0
+ORD0087,2026-09-25,Kumasi,Online,Tea Pack,Grocery,6,36.72,0
+ORD0088,2026-09-07,Accra,In-Store,Rice 5kg,Grocery,4,116.54,5
+ORD0089,2026-09-21,Accra,WhatsApp,Tea Pack,Grocery,2,35.0,15
+ORD0090,2026-08-18,Tamale,WhatsApp,Phone Charger,Electronics,2,73.69,0
+ORD0091,2026-08-23,Accra,WhatsApp,Bottled Water 12pk,Beverages,1,45.24,0
+ORD0092,2026-07-29,Kumasi,In-Store,Cooking Oil 1L,Grocery,6,43.6,0
+ORD0093,2026-07-03,Accra,Online,Soap Pack,Household,2,28.04,0
+ORD0094,2026-07-28,Kumasi,Online,Laundry Detergent,Household,6,62.38,0
+ORD0095,2026-09-16,Accra,WhatsApp,Cooking Oil 1L,Grocery,2,40.07,0
+ORD0096,2026-09-12,Kumasi,In-Store,Tea Pack,Grocery,4,33.8,10
+ORD0097,2026-09-28,Accra,WhatsApp,Bottled Water 12pk,Beverages,6,50.15,5
+ORD0098,2026-09-07,Takoradi,In-Store,Tea Pack,Grocery,6,33.21,0
+ORD0099,2026-08-23,Tamale,Online,Laundry Detergent,Household,1,63.89,0
+ORD0100,2026-07-20,Takoradi,Online,Tea Pack,Grocery,2,35.27,10
+ORD0101,2026-09-07,Takoradi,WhatsApp,Laundry Detergent,Household,4,62.84,0
+ORD0102,2026-08-01,Tamale,Online,Cooking Oil 1L,Grocery,3,40.81,0
+ORD0103,2026-09-17,Takoradi,In-Store,Tea Pack,Grocery,3,35.15,0
+ORD0104,2026-09-01,Takoradi,Online,Notebook,Stationery,3,17.52,15
+ORD0105,2026-09-28,Kumasi,In-Store,Bottled Water 12pk,Beverages,5,48.34,0
+ORD0106,2026-07-31,Tamale,Online,Tea Pack,Grocery,4,36.35,5
+ORD0107,2026-09-30,Takoradi,In-Store,Laundry Detergent,Household,4,56.53,15
+ORD0108,2026-08-21,Tamale,Online,Notebook,Stationery,3,18.28,10
+ORD0109,2026-09-06,Takoradi,Online,Phone Charger,Electronics,4,75.87,10
+ORD0110,2026-08-28,Kumasi,WhatsApp,Bottled Water 12pk,Beverages,3,46.56,0
+ORD0111,2026-07-16,Takoradi,Online,Soap Pack,Household,2,29.01,0
+ORD0112,2026-09-14,Kumasi,WhatsApp,Bottled Water 12pk,Beverages,1,46.33,15
+ORD0113,2026-07-23,Takoradi,In-Store,Bottled Water 12pk,Beverages,1,48.45,10
+ORD0114,2026-07-07,Tamale,In-Store,Bottled Water 12pk,Beverages,6,49.1,0
+ORD0115,2026-07-02,Kumasi,In-Store,Bottled Water 12pk,Beverages,4,47.87,0
+ORD0116,2026-08-02,Tamale,In-Store,Laundry Detergent,Household,1,56.91,15
+ORD0117,2026-09-12,Takoradi,In-Store,Rice 5kg,Grocery,2,120.23,0
+ORD0118,2026-08-01,Kumasi,Online,Cooking Oil 1L,Grocery,5,41.75,15
+ORD0119,2026-08-18,Tamale,WhatsApp,Laundry Detergent,Household,4,63.11,0
+ORD0120,2026-09-11,Kumasi,Online,Rice 5kg,Grocery,5,109.58,10
+ORD0121,2026-07-28,Kumasi,Online,Bottled Water 12pk,Beverages,6,46.1,0
+ORD0122,2026-07-10,Tamale,WhatsApp,Soap Pack,Household,1,27.96,0
+ORD0123,2026-07-05,Tamale,In-Store,Notebook,Stationery,3,17.58,10
+ORD0124,2026-09-26,Kumasi,WhatsApp,Notebook,Stationery,3,18.77,15
+ORD0125,2026-07-15,Kumasi,In-Store,Notebook,Stationery,6,19.05,0
+ORD0126,2026-07-08,Takoradi,WhatsApp,Soap Pack,Household,3,29.05,5
+ORD0127,2026-07-16,Takoradi,Online,Laundry Detergent,Household,6,61.86,
+ORD0128,2026-09-08,Tamale,Online,Laundry Detergent,Household,4,61.06,0
+ORD0129,2026-08-11,Accra,Online,Bottled Water 12pk,Beverages,1,46.55,0
+ORD0130,2026-08-04,Tamale,WhatsApp,Rice 5kg,Grocery,2,115.86,0
+ORD0131,2026-07-24,Accra,WhatsApp,Tea Pack,Grocery,6,35.14,15
+ORD0132,2026-08-14,Kumasi,WhatsApp,Tea Pack,Grocery,3,35.95,0
+ORD0133,2026-08-22,Accra,WhatsApp,Laundry Detergent,Household,3,63.77,10
+ORD0134,2026-07-12,Tamale,Online,Phone Charger,Electronics,3,71.63,0
+ORD0135,2026-07-01,Takoradi,Online,Laundry Detergent,Household,4,57.86,0
+ORD0136,2026-09-02,Kumasi,WhatsApp,Laundry Detergent,Household,1,58.48,0
+ORD0137,2026-08-26,Kumasi,Online,Laundry Detergent,Household,1,63.99,0
+ORD0138,2026-07-21,Accra,In-Store,Bottled Water 12pk,Beverages,5,48.57,0
+ORD0139,2026-07-15,Tamale,Online,Laundry Detergent,Household,1,62.89,10
+ORD0140,2026-08-07,Tamale,In-Store,Bottled Water 12pk,Beverages,4,48.13,15
+ORD0141,2026-08-28,Kumasi,In-Store,Soap Pack,Household,4,29.68,0
+ORD0142,2026-08-05,Accra,WhatsApp,Tea Pack,Grocery,3,35.21,15
+ORD0143,2026-08-08,Takoradi,WhatsApp,Laundry Detergent,Household,2,60.6,0
+ORD0144,2026-09-09,Kumasi,Online,Tea Pack,Grocery,4,36.86,0
+ORD0145,2026-08-19,Tamale,Online,Notebook,Stationery,4,17.66,0
+ORD0146,2026-08-18,Kumasi,WhatsApp,Tea Pack,Grocery,6,36.63,15
+ORD0147,2026-07-05,Accra,WhatsApp,Soap Pack,Household,5,27.53,5
+ORD0148,2026-07-13,Kumasi,In-Store,Laundry Detergent,Household,1,57.52,10
+ORD0149,2026-08-30,Accra,WhatsApp,Bottled Water 12pk,Beverages,3,49.44,5
+ORD0150,2026-09-25,Tamale,Online,Tea Pack,Grocery,3,36.17,10
+ORD0151,2026-07-05,Takoradi,In-Store,Cooking Oil 1L,Grocery,2,43.22,10
+ORD0152,2026-07-12,Accra,WhatsApp,Tea Pack,Grocery,1,35.78,15
+ORD0153,2026-07-22,Accra,WhatsApp,Bottled Water 12pk,Beverages,1,47.14,0
+ORD0154,2026-08-15,Tamale,Online,Phone Charger,Electronics,4,72.88,0
+ORD0155,2026-09-26,Tamale,Online,Soap Pack,Household,2,26.61,0
+ORD0156,2026-09-26,Tamale,Online,Notebook,Stationery,4,17.25,5
+ORD0157,2026-08-02,Tamale,WhatsApp,Laundry Detergent,Household,3,56.47,10
+ORD0158,2026-09-25,Takoradi,Online,Soap Pack,Household,1,29.76,0
+ORD0159,2026-08-24,Tamale,WhatsApp,Bottled Water 12pk,Beverages,4,47.01,15
+ORD0160,2026-07-14,Takoradi,Online,Notebook,Stationery,4,17.76,5
+ORD0161,2026-08-07,Accra,Online,Rice 5kg,Grocery,6,112.2,0
+ORD0162,2026-09-02,Kumasi,Online,Bottled Water 12pk,Beverages,2,50.12,5
+ORD0163,2026-07-25,Kumasi,Online,Bottled Water 12pk,Beverages,6,49.62,15
+ORD0164,2026-07-13,Takoradi,Online,Rice 5kg,Grocery,3,114.69,15
+ORD0165,2026-07-17,Kumasi,In-Store,Cooking Oil 1L,Grocery,3,43.56,0
+ORD0166,2026-07-17,Kumasi,WhatsApp,Phone Charger,Electronics,5,79.41,5
+ORD0167,2026-08-31,Accra,WhatsApp,Bottled Water 12pk,Beverages,6,47.23,15
+ORD0168,2026-07-10,Tamale,Online,Soap Pack,Household,2,28.78,15
+ORD0169,2026-08-16,Accra,WhatsApp,Cooking Oil 1L,Grocery,4,40.92,0
+ORD0170,2026-08-17,Takoradi,In-Store,Bottled Water 12pk,Beverages,5,50.25,0
+ORD0171,2026-09-25,Takoradi,Online,Notebook,Stationery,4,18.37,0
+ORD0172,2026-07-29,Takoradi,Online,Cooking Oil 1L,Grocery,6,42.01,15
+ORD0173,2026-08-22,Takoradi,WhatsApp,Cooking Oil 1L,Grocery,2,44.65,0
+ORD0174,2026-07-15,Tamale,WhatsApp,Cooking Oil 1L,Grocery,2,40.22,5
+ORD0175,2026-09-24,Tamale,Online,Tea Pack,Grocery,5,36.21,10
+ORD0176,2026-07-13,Takoradi,In-Store,Laundry Detergent,Household,5,63.72,0
+ORD0177,2026-09-27,Kumasi,WhatsApp,Phone Charger,Electronics,2,74.84,0
+ORD0178,2026-07-13,Tamale,WhatsApp,Phone Charger,Electronics,5,74.0,10
+ORD0179,2026-07-25,Accra,In-Store,Cooking Oil 1L,Grocery,4,43.1,0
+ORD0180,2026-08-12,Accra,Online,Notebook,Stationery,2,18.24,15
+ORD0181,2026-07-27,Accra,WhatsApp,Notebook,Stationery,2,18.73,0
+ORD0182,2026-07-19,Accra,Online,Soap Pack,Household,5,29.23,0
+ORD0183,2026-07-04,Kumasi,Online,Soap Pack,Household,1,29.2,0
+ORD0184,2026-08-11,Tamale,Online,Rice 5kg,Grocery,2,108.88,0
+ORD0185,2026-07-15,Accra,WhatsApp,Cooking Oil 1L,Grocery,4,43.73,0
+ORD0186,2026-09-03,Takoradi,WhatsApp,Notebook,Stationery,5,18.62,0
+ORD0187,2026-09-21,Tamale,Online,Rice 5kg,Grocery,1,120.77,0
+ORD0188,2026-07-14,Accra,WhatsApp,Laundry Detergent,Household,6,56.97,0
+ORD0189,2026-09-16,Takoradi,WhatsApp,Soap Pack,Household,1,27.32,0
+ORD0190,2026-09-15,Accra,Online,Bottled Water 12pk,Beverages,4,48.9,5
+ORD0191,2026-07-15,Tamale,WhatsApp,Notebook,Stationery,4,19.0,0
+ORD0192,2026-08-28,Tamale,WhatsApp,Tea Pack,Grocery,4,33.33,10
+ORD0193,2026-09-24,Tamale,In-Store,Bottled Water 12pk,Beverages,3,49.41,0
+ORD0194,2026-07-12,Takoradi,In-Store,Cooking Oil 1L,Grocery,1,40.01,0
+ORD0195,2026-09-10,Accra,WhatsApp,Rice 5kg,Grocery,5,116.5,5
+ORD0196,2026-08-15,Takoradi,WhatsApp,Tea Pack,Grocery,6,37.31,0
+ORD0197,2026-07-14,Accra,WhatsApp,Notebook,Stationery,2,18.05,10
+ORD0198,2026-09-10,Kumasi,WhatsApp,Phone Charger,Electronics,1,73.22,15
+ORD0199,2026-09-10,Takoradi,In-Store,Rice 5kg,Grocery,5,120.5,10
+ORD0200,2026-07-24,Takoradi,WhatsApp,Bottled Water 12pk,Beverages,6,47.05,15
+ORD0201,2026-07-01,Accra,In-Store,Soap Pack,Household,2,28.71,5
+ORD0202,2026-09-20,Tamale,WhatsApp,Rice 5kg,Grocery,1,116.03,10
+ORD0203,2026-08-28,Takoradi,Online,Phone Charger,Electronics,2,73.54,0
+ORD0204,2026-09-15,Accra,Online,Cooking Oil 1L,Grocery,1,40.34,0
+ORD0205,2026-07-11,Tamale,WhatsApp,Bottled Water 12pk,Beverages,4,47.77,10
+ORD0206,2026-08-04,Accra,WhatsApp,Notebook,Stationery,5,17.73,0
+ORD0207,2026-09-25,Kumasi,WhatsApp,Laundry Detergent,Household,5,58.81,10
+ORD0208,2026-09-15,Kumasi,In-Store,Rice 5kg,Grocery,1,112.61,0
+ORD0209,2026-08-02,Tamale,In-Store,Bottled Water 12pk,Beverages,3,45.17,0
+ORD0210,2026-07-17,Takoradi,In-Store,Tea Pack,Grocery,5,33.95,10
+ORD0211,2026-08-20,Accra,WhatsApp,Rice 5kg,Grocery,4,114.97,0
+ORD0212,2026-09-12,Tamale,WhatsApp,Tea Pack,Grocery,5,36.13,0
+ORD0213,2026-07-15,Tamale,Online,Tea Pack,Grocery,1,33.68,0
+ORD0214,2026-08-16,Tamale,Online,Cooking Oil 1L,Grocery,4,40.06,15
+ORD0215,2026-08-21,Takoradi,In-Store,Cooking Oil 1L,Grocery,4,41.17,15
+ORD0216,2026-08-12,Kumasi,WhatsApp,Soap Pack,Household,1,28.62,5
+ORD0217,2026-08-14,Kumasi,In-Store,Soap Pack,Household,2,26.85,0
+ORD0218,2026-09-16,Tamale,WhatsApp,Soap Pack,Household,6,26.96,0
+ORD0219,2026-09-11,Takoradi,Online,Laundry Detergent,Household,6,61.42,5
+ORD0220,2026-08-10,Takoradi,WhatsApp,Soap Pack,Household,4,28.03,0
+ORD0221,2026-09-14,Tamale,WhatsApp,Rice 5kg,Grocery,3,109.21,5
+ORD0222,2026-07-05,Accra,Online,Rice 5kg,Grocery,3,112.39,15
+ORD0223,2026-09-15,Accra,WhatsApp,Tea Pack,Grocery,4,35.42,5
+ORD0224,2026-09-12,Kumasi,In-Store,Notebook,Stationery,3,18.03,5
+ORD0225,2026-08-27,Kumasi,In-Store,Cooking Oil 1L,Grocery,3,39.94,10
+ORD0226,2026-08-01,Kumasi,WhatsApp,Laundry Detergent,Household,4,60.48,5
+ORD0227,2026-08-17,Accra,Online,Bottled Water 12pk,Beverages,4,49.95,0
+ORD0228,2026-09-21,Tamale,WhatsApp,Phone Charger,Electronics,1,71.42,0
+ORD0229,2026-08-02,Kumasi,WhatsApp,Soap Pack,Household,3,28.44,0
+ORD0230,2026-08-09,Accra,WhatsApp,Tea Pack,Grocery,2,36.13,5
+ORD0231,2026-09-10,Kumasi,Online,Tea Pack,Grocery,6,34.39,15
+ORD0232,2026-09-28,Takoradi,In-Store,Cooking Oil 1L,Grocery,6,41.79,10
+ORD0233,2026-08-16,Tamale,In-Store,Bottled Water 12pk,Beverages,2,47.25,0
+ORD0234,2026-07-29,Accra,Online,Soap Pack,Household,2,27.4,0
+ORD0235,2026-09-08,Kumasi,Online,Rice 5kg,Grocery,6,121.2,0
+ORD0236,2026-08-18,Kumasi,Online,Soap Pack,Household,2,29.35,0
+ORD0237,2026-08-26,Kumasi,WhatsApp,Rice 5kg,Grocery,4,118.21,0
+ORD0238,2026-09-17,Kumasi,WhatsApp,Bottled Water 12pk,Beverages,6,47.92,15
+ORD0239,2026-08-30,Tamale,WhatsApp,Notebook,Stationery,3,19.14,10
+ORD0240,2026-08-06,Kumasi,In-Store,Tea Pack,Grocery,5,34.8,5
+ORD0241,2026-09-16,Takoradi,Online,Soap Pack,Household,3,28.65,0
+ORD0242,2026-07-14,Takoradi,WhatsApp,Cooking Oil 1L,Grocery,3,43.65,0
+ORD0243,2026-09-04,Kumasi,WhatsApp,Soap Pack,Household,4,29.76,0
+ORD0244,2026-08-14,Takoradi,In-Store,Rice 5kg,Grocery,4,114.03,0
+ORD0245,2026-08-19,Accra,Online,Cooking Oil 1L,Grocery,3,39.63,0
+ORD0246,2026-09-22,Tamale,Online,Phone Charger,Electronics,2,70.87,0
+ORD0247,2026-07-18,Accra,In-Store,Laundry Detergent,Household,4,56.44,5
+ORD0248,2026-08-02,Tamale,In-Store,Notebook,Stationery,2,19.12,5
+ORD0249,2026-08-06,Tamale,Online,Notebook,Stationery,3,17.03,0
+ORD0250,2026-09-18,Tamale,Online,Laundry Detergent,Household,1,62.93,0
+ORD0042,2026-08-01,Takoradi,WhatsApp,Rice 5kg,Grocery,5,114.37,0
