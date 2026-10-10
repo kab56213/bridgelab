@@ -1,0 +1,35 @@
+BRIDGELAB - BUSINESS ANALYTICS REPORT
+=============================================
+Source records: 251
+Analyzed records: 248
+Total revenue (GHS): 41,730.93
+
+REVENUE BY BRANCH:
+branch
+Takoradi    10952.5900
+Kumasi      10589.7110
+Accra       10010.7715
+Tamale       9969.9910
+
+REVENUE BY PRODUCT:
+product
+Rice 5kg              11354.8425
+Bottled Water 12pk     6947.5175
+Laundry Detergent      5607.0755
+Phone Charger          4592.2445
+Tea Pack               4268.2755
+Cooking Oil 1L         4176.8930
+Soap Pack              2581.9435
+Notebook               2202.1390
+
+REVENUE BY CHANNEL:
+channel
+WhatsApp    15907.9400
+Online      14430.2195
+In-Store    11392.7715
+
+MONTHLY REVENUE:
+month
+2026-07    14022.4975
+2026-08    13244.4505
+2026-09    14463.9830

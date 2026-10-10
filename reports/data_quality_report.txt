@@ -1,0 +1,21 @@
+BRIDGELAB - DATA QUALITY REPORT
+========================================
+Total rows: 251
+Total columns: 9
+Duplicate rows: 1
+
+MISSING VALUES:
+order_id          0
+order_date        0
+branch            1
+channel           0
+product           0
+category          0
+quantity          1
+unit_price_ghs    0
+discount_pct      1
+
+NEGATIVE NUMERIC VALUES (REVIEW REQUIRED):
+quantity: 0
+unit_price_ghs: 0
+discount_pct: 0
