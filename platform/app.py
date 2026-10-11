@@ -1,8 +1,8 @@
 
 from pathlib import Path
 from functools import wraps
+from datetime import date, timedelta
 from urllib.parse import urlparse
-from datetime import timedelta
 import sqlite3
 import secrets
 import hmac
@@ -10,41 +10,29 @@ import sys
 import time
 
 from flask import (
-    Flask, request, redirect, render_template_string,
-    session, abort, url_for
+    Flask, request, redirect, url_for,
+    render_template_string, session, abort
 )
 
-# ================================================
-# BRIDGELAB V4 - CHALLENGE CONTROL
-# ADMINISTRATOR AUTHENTICATION + PROJECT MANAGEMENT
-# LOCAL DEVELOPMENT VERSION
-# ================================================
-
 ROOT = Path(__file__).resolve().parent.parent
-INSTANCE_DIR = ROOT / "instance"
-DB_PATH = INSTANCE_DIR / "bridgelab.db"
-SECRET_PATH = INSTANCE_DIR / ".flask_secret"
+INSTANCE = ROOT / "instance"
+DB_PATH = INSTANCE / "bridgelab.db"
+SECRET_PATH = INSTANCE / ".flask_secret"
 
 sys.path.insert(0, str(ROOT))
 
-from auth.security import verify_password
+from auth.security import hash_password, verify_password
 from evaluation.scoring_engine import (
     Evaluation, CRITERIA, rank_submissions
 )
 
-INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
+INSTANCE.mkdir(exist_ok=True)
 
-# Persistent local session secret
 if not SECRET_PATH.exists():
-    SECRET_PATH.write_text(
-        secrets.token_hex(32), encoding="utf-8"
-    )
+    SECRET_PATH.write_text(secrets.token_hex(32))
 
 app = Flask(__name__)
-app.secret_key = SECRET_PATH.read_text(
-    encoding="utf-8"
-).strip()
-
+app.secret_key = SECRET_PATH.read_text().strip()
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
@@ -53,27 +41,25 @@ app.config.update(
     MAX_CONTENT_LENGTH=1024 * 1024
 )
 
-LABELS = {
-    "technical_accuracy": "Technical Accuracy",
-    "problem_solving": "Problem Solving",
-    "presentation": "Presentation",
-    "originality": "Originality",
-    "documentation": "Documentation"
-}
+TRACKS = [
+    "Data Analytics",
+    "Software Development",
+    "Business Analysis"
+]
 
-# Local prototype login throttle
+STATUSES = ["Draft", "Open", "Closed"]
+
 LOGIN_ATTEMPTS = {}
 MAX_ATTEMPTS = 5
 LOCK_SECONDS = 300
 
 
-# ================================================
-# DATABASE
-# ================================================
+# =============================================
+# DATABASE AND MIGRATION
+# =============================================
 
 def get_db():
-    INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
-    db = sqlite3.connect(DB_PATH)
+    db = sqlite3.connect(DB_PATH, timeout=10)
     db.row_factory = sqlite3.Row
     db.execute("PRAGMA foreign_keys = ON")
     return db
@@ -81,1432 +67,1593 @@ def get_db():
 
 def initialize_database():
     with get_db() as db:
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS participants (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                skill TEXT NOT NULL,
-                joined_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
+        db.executescript("""
+        CREATE TABLE IF NOT EXISTS admins (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS participants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            skill TEXT NOT NULL,
+            joined_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            participant_id INTEGER UNIQUE NOT NULL,
+            project_url TEXT NOT NULL,
+            submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(participant_id)
+                REFERENCES participants(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS evaluations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            participant_id INTEGER UNIQUE NOT NULL,
+            technical_accuracy INTEGER NOT NULL,
+            problem_solving INTEGER NOT NULL,
+            presentation INTEGER NOT NULL,
+            originality INTEGER NOT NULL,
+            documentation INTEGER NOT NULL,
+            total_score INTEGER NOT NULL,
+            evaluated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY(participant_id)
+                REFERENCES participants(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS challenges (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            track TEXT NOT NULL,
+            description TEXT NOT NULL,
+            deliverables TEXT NOT NULL,
+            deadline TEXT,
+            prize_usd REAL NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'Draft'
+        );
+
+        CREATE TABLE IF NOT EXISTS participant_accounts (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            skill TEXT NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS enrollments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            participant_id INTEGER NOT NULL,
+            challenge_id INTEGER NOT NULL,
+            enrolled_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(participant_id, challenge_id),
+            FOREIGN KEY(participant_id)
+                REFERENCES participant_accounts(id),
+            FOREIGN KEY(challenge_id)
+                REFERENCES challenges(id)
+        );
+
+        CREATE TABLE IF NOT EXISTS challenge_submissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            participant_id INTEGER NOT NULL,
+            challenge_id INTEGER NOT NULL,
+            project_url TEXT NOT NULL,
+            review_status TEXT NOT NULL DEFAULT 'Submitted',
+            submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(participant_id, challenge_id),
+            FOREIGN KEY(participant_id)
+                REFERENCES participant_accounts(id),
+            FOREIGN KEY(challenge_id)
+                REFERENCES challenges(id)
+        );
         """)
 
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS submissions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                participant_id INTEGER NOT NULL UNIQUE,
-                project_url TEXT NOT NULL,
-                submitted_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (participant_id)
-                    REFERENCES participants(id)
-            )
-        """)
+        count = db.execute(
+            "SELECT COUNT(*) FROM challenges"
+        ).fetchone()[0]
 
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS evaluations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                participant_id INTEGER NOT NULL UNIQUE,
-                technical_accuracy INTEGER NOT NULL,
-                problem_solving INTEGER NOT NULL,
-                presentation INTEGER NOT NULL,
-                originality INTEGER NOT NULL,
-                documentation INTEGER NOT NULL,
-                total_score INTEGER NOT NULL,
-                evaluated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (participant_id)
-                    REFERENCES participants(id)
-            )
-        """)
+        if count == 0:
+            db.execute("""
+                INSERT INTO challenges
+                (title, track, description, deliverables,
+                 deadline, prize_usd, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                "Retail Analytics Challenge 001",
+                "Data Analytics",
+                "Analyze a synthetic retail dataset and "
+                "recommend business improvements.",
+                "Cleaned data, analysis, charts, "
+                "recommendations, and GitHub repository.",
+                None, 100, "Draft"
+            ))
 
-        db.execute("""
-            CREATE TABLE IF NOT EXISTS admins (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
         db.commit()
 
 
-# ================================================
-# SECURITY
-# ================================================
+# =============================================
+# SECURITY AND UTILITIES
+# =============================================
 
-def csrf_token():
+def token():
     if "_csrf" not in session:
         session["_csrf"] = secrets.token_urlsafe(32)
     return session["_csrf"]
 
 
-def verify_csrf():
-    received = request.form.get("_csrf", "")
-    if not hmac.compare_digest(received, csrf_token()):
-        abort(400, "Invalid security token.")
+def check_token():
+    supplied = request.form.get("_csrf", "")
+    if not hmac.compare_digest(supplied, token()):
+        abort(400, "Invalid form token.")
 
 
-def admin_required(function):
-    @wraps(function)
-    def protected(*args, **kwargs):
-        if "admin_id" not in session:
-            return redirect(url_for("login"))
+def admin_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if session.get("role") != "admin":
+            return redirect(url_for("admin_login"))
 
         with get_db() as db:
-            admin = db.execute(
+            user = db.execute(
                 "SELECT id FROM admins WHERE id = ?",
-                (session["admin_id"],)
+                (session.get("user_id"),)
             ).fetchone()
 
-        if not admin:
+        if user is None:
             session.clear()
-            return redirect(url_for("login"))
+            return redirect(url_for("admin_login"))
 
-        return function(*args, **kwargs)
-    return protected
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def participant_required(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        if session.get("role") != "participant":
+            return redirect(url_for("participant_login"))
+
+        with get_db() as db:
+            user = db.execute(
+                "SELECT id FROM participant_accounts WHERE id = ?",
+                (session.get("user_id"),)
+            ).fetchone()
+
+        if user is None:
+            session.clear()
+            return redirect(url_for("participant_login"))
+
+        return fn(*args, **kwargs)
+    return wrapper
+
+
+def login_allowed(key):
+    now = time.monotonic()
+    recent = [
+        t for t in LOGIN_ATTEMPTS.get(key, [])
+        if now - t < LOCK_SECONDS
+    ]
+    LOGIN_ATTEMPTS[key] = recent
+    return len(recent) < MAX_ATTEMPTS
+
+
+def record_failure(key):
+    LOGIN_ATTEMPTS.setdefault(key, []).append(
+        time.monotonic()
+    )
+
+
+def start_session(user_id, role):
+    session.clear()
+    session["user_id"] = user_id
+    session["role"] = role
+    session.permanent = True
+    session["_csrf"] = secrets.token_urlsafe(32)
 
 
 def notify(text, error=False):
     return redirect(url_for(
-        "dashboard",
+        "admin_dashboard",
         **{"error" if error else "notice": text}
     ))
 
 
-# ================================================
-# SHARED RETRO DESIGN
-# ================================================
+def valid_handle(value):
+    return (
+        3 <= len(value) <= 40
+        and all(c.isalnum() or c in "_-" for c in value)
+    )
 
-STYLES = """
+
+def valid_github(value):
+    try:
+        u = urlparse(value)
+        parts = u.path.strip("/").split("/")
+        return (
+            u.scheme == "https"
+            and u.hostname == "github.com"
+            and u.port in (None, 443)
+            and not u.username
+            and not u.password
+            and len(parts) == 2
+            and all(parts)
+            and len(value) <= 500
+        )
+    except ValueError:
+        return False
+
+
+def is_open(challenge):
+    return (
+        challenge["status"] == "Open"
+        and challenge["deadline"] is not None
+        and challenge["deadline"] >= date.today().isoformat()
+    )
+
+
+# =============================================
+# RETRO-MODERN DESIGN
+# =============================================
+
+CSS = """
 :root {
-    --navy: #18243d;
-    --blue: #364fc7;
-    --cream: #f3efe5;
-    --paper: #fffdf8;
-    --yellow: #f5d46c;
-    --mint: #c7ecd6;
-    --line: #c7c6be;
-    --muted: #717883;
+    --navy:#192640;
+    --blue:#3454c8;
+    --cream:#f4f0e7;
+    --paper:#fffdf8;
+    --yellow:#f5d46c;
+    --mint:#c9edda;
+    --line:#c4c5c3;
+    --muted:#687385;
 }
-
-* { box-sizing: border-box; }
-
-html { scroll-behavior: smooth; }
-
+* { box-sizing:border-box; }
+html { scroll-behavior:smooth; }
 body {
-    margin: 0;
-    background: var(--cream);
-    color: var(--navy);
-    font-family: Arial, sans-serif;
-    font-size: 13px;
+    margin:0;
+    background:var(--cream);
+    color:var(--navy);
+    font:14px Arial,sans-serif;
 }
-
-a { color: inherit; }
-button, input, select { font: inherit; }
-
-input, select {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #9da3ad;
-    background: white;
-    color: var(--navy);
-    border-radius: 0;
+a { color:var(--blue); }
+input,select,textarea,button { font:inherit; }
+input,select,textarea {
+    width:100%;
+    padding:12px;
+    background:white;
+    border:1px solid #a0a6ae;
+    border-radius:0;
 }
-
-input:focus, select:focus {
-    outline: 2px solid var(--blue);
-}
-
+textarea { min-height:100px; }
 label {
-    display: block;
-    margin: 15px 0 7px;
-    font: bold 11px "Courier New", monospace;
+    display:block;
+    margin:15px 0 7px;
+    font:bold 11px "Courier New",monospace;
 }
-
-button { cursor: pointer; }
-button:disabled { opacity: .45; cursor: not-allowed; }
-
-.btn {
-    background: var(--blue);
-    border: 1px solid var(--navy);
-    color: white;
-    padding: 13px 19px;
-    margin-top: 19px;
-    font: bold 11px "Courier New", monospace;
-    box-shadow: 3px 3px 0 var(--navy);
+button { cursor:pointer; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+.top {
+    background:var(--navy);
+    color:white;
+    padding:12px 4%;
+    display:flex;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    font:11px "Courier New",monospace;
 }
-
-.btn:hover:not(:disabled) {
-    transform: translate(1px, 1px);
-    box-shadow: 2px 2px 0 var(--navy);
-}
-
-.btn-yellow {
-    background: var(--yellow);
-    color: var(--navy);
-}
-
-.topbar {
-    background: var(--navy);
-    color: white;
-    padding: 12px 4%;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    font: 11px "Courier New", monospace;
-}
-
+.top a { color:white; }
 .shell {
-    max-width: 1460px;
-    padding: 30px 24px;
-    margin: auto;
+    max-width:1480px;
+    margin:auto;
+    padding:30px 24px 65px;
 }
-
-.masthead {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 20px;
-    border-bottom: 3px solid var(--navy);
-    padding-bottom: 23px;
+.brand {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    border-bottom:3px solid var(--navy);
+    padding-bottom:23px;
+    gap:18px;
 }
-
 .logo {
-    font: bold clamp(35px, 5vw, 59px) Georgia, serif;
-    letter-spacing: -3px;
+    font:bold clamp(37px,5vw,61px) Georgia,serif;
+    letter-spacing:-3px;
 }
-
-.logo span { color: var(--blue); }
-
-.motto {
-    font: bold 11px "Courier New", monospace;
-    color: var(--muted);
-    margin-top: 6px;
-    letter-spacing: 1px;
+.logo span { color:var(--blue); }
+.tagline {
+    font:11px "Courier New",monospace;
+    margin-top:7px;
+    color:var(--muted);
 }
-
 .stamp {
-    background: var(--yellow);
-    padding: 12px 15px;
-    border: 1px solid var(--navy);
-    box-shadow: 4px 4px 0 var(--navy);
-    font: bold 11px "Courier New", monospace;
+    background:var(--yellow);
+    border:1px solid var(--navy);
+    padding:12px;
+    box-shadow:4px 4px 0 var(--navy);
+    font:bold 11px "Courier New",monospace;
 }
-
-.workspace {
-    display: grid;
-    grid-template-columns: 220px minmax(0, 1fr);
-    gap: 25px;
-    margin-top: 25px;
+.layout {
+    display:grid;
+    grid-template-columns:225px minmax(0,1fr);
+    gap:26px;
+    margin-top:25px;
 }
-
-.sidebar { align-self: start; }
-
-.sidebox, .panel {
-    background: var(--paper);
-    border: 1px solid var(--navy);
-    box-shadow: 3px 3px 0 #b8bec8;
+.sidebar {
+    background:var(--paper);
+    border:1px solid var(--navy);
+    padding:18px;
+    height:fit-content;
+    box-shadow:4px 4px 0 var(--navy);
 }
-
-.sidebox { padding: 17px; }
-
-.nav {
-    display: block;
-    text-decoration: none;
-    font-weight: bold;
-    padding: 13px 9px;
-    border-top: 1px dashed var(--line);
+.sidebar a {
+    display:block;
+    padding:13px 7px;
+    border-top:1px dashed var(--line);
+    text-decoration:none;
+    font-weight:bold;
 }
-
-.nav:hover {
-    background: #e4eaff;
-    color: var(--blue);
-}
-
-.nav span {
-    font-family: "Courier New", monospace;
-    color: var(--muted);
-    margin-right: 9px;
-}
-
-.side-note {
-    background: var(--mint);
-    border: 1px solid var(--navy);
-    margin-top: 20px;
-    padding: 16px;
-    line-height: 1.7;
-}
-
-.mono {
-    font: bold 11px "Courier New", monospace;
-}
-
+.sidebar a:hover { background:#e5eaff; }
 .hero {
-    background: var(--navy);
-    color: white;
-    padding: 37px;
-    position: relative;
-    overflow: hidden;
+    background:var(--navy);
+    color:white;
+    padding:34px;
 }
-
-.hero:after {
-    content: "BL.";
-    position: absolute;
-    right: 25px;
-    bottom: -45px;
-    font: bold 160px Georgia, serif;
-    opacity: .06;
-    pointer-events: none;
-}
-
 .hero h1 {
-    font: bold clamp(28px, 4vw, 44px) Georgia, serif;
-    margin: 15px 0;
+    font:bold clamp(28px,4vw,44px) Georgia,serif;
+    margin:14px 0;
 }
-
 .hero p {
-    color: #d3dbea;
-    line-height: 1.8;
-    max-width: 550px;
+    max-width:620px;
+    line-height:1.8;
+    color:#d3ddea;
 }
-
-.eyebrow {
-    color: var(--yellow);
-    font: bold 11px "Courier New", monospace;
-    letter-spacing: 2px;
+.mono {
+    font:bold 11px "Courier New",monospace;
 }
-
-.notice {
-    background: #fff0c5;
-    border: 1px solid #baa15d;
-    padding: 14px;
-    margin-top: 15px;
-    line-height: 1.6;
-}
-
-.success {
-    background: var(--mint);
-    border: 1px solid #7b9c85;
-    padding: 13px;
-    margin-top: 14px;
-}
-
-.error {
-    background: #ffe4df;
-    border: 1px solid #bd7a72;
-    padding: 13px;
-    margin-top: 14px;
-}
-
+.gold { color:var(--yellow); }
 .heading {
-    margin: 29px 0 15px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin:30px 0 15px;
+    gap:10px;
 }
-
 .heading h2 {
-    font: bold 24px Georgia, serif;
-    margin: 0;
+    font:bold 24px Georgia,serif;
+    margin:0;
 }
-
-.heading small {
-    font: 11px "Courier New", monospace;
-    color: var(--muted);
+.panel,.challenge,.stat {
+    background:var(--paper);
+    border:1px solid var(--navy);
+    box-shadow:3px 3px 0 #c1c4c9;
 }
-
-.stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0,1fr));
-    gap: 13px;
-}
-
-.stat {
-    background: var(--paper);
-    border: 1px solid var(--navy);
-    padding: 20px;
-    box-shadow: 3px 3px 0 #b8bec8;
-}
-
-.stat:nth-child(2) { background: #e4eaff; }
-.stat:nth-child(4) { background: var(--mint); }
-
-.stat .label {
-    font: bold 10px "Courier New", monospace;
-    color: var(--muted);
-}
-
-.stat .value {
-    font: bold 40px Georgia, serif;
-    margin-top: 10px;
-}
-
-.columns {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px;
-}
-
 .panel-head {
-    background: #e9e8e2;
-    border-bottom: 1px solid var(--navy);
-    padding: 14px 17px;
-    display: flex;
-    justify-content: space-between;
-    font: bold 11px "Courier New", monospace;
-    gap: 10px;
+    padding:13px 18px;
+    border-bottom:1px solid var(--navy);
+    background:#e8e8e3;
+    font:bold 11px "Courier New",monospace;
 }
-
-.panel-body { padding: 20px; }
-
-.panel-body p {
-    color: var(--muted);
-    line-height: 1.7;
+.panel-body { padding:20px; }
+.columns {
+    display:grid;
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:18px;
 }
-
-.table-scroll { overflow-x: auto; }
-
-table {
-    width: 100%;
-    min-width: 610px;
-    border-collapse: collapse;
+.stats {
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:13px;
 }
-
-th {
-    background: #e9e8e2;
-    text-align: left;
-    padding: 14px;
-    font: bold 11px "Courier New", monospace;
-    border-bottom: 1px solid var(--navy);
+.stat { padding:20px; }
+.stat:nth-child(2) { background:#e5eaff; }
+.stat:nth-child(4) { background:var(--mint); }
+.stat strong {
+    display:block;
+    font:bold 39px Georgia,serif;
+    margin-top:12px;
 }
-
-td {
-    padding: 14px;
-    border-bottom: 1px solid #deddd7;
+.challenge {
+    padding:23px;
+    margin-bottom:17px;
 }
-
+.challenge h3 {
+    font:bold 25px Georgia,serif;
+    margin:13px 0;
+}
+.challenge p { line-height:1.7; }
 .pill {
-    display: inline-block;
-    padding: 6px 9px;
-    background: var(--mint);
-    border: 1px solid #86a68c;
-    font: bold 10px "Courier New", monospace;
+    display:inline-block;
+    padding:6px 10px;
+    margin:4px 5px 4px 0;
+    background:var(--mint);
+    border:1px solid #93a89e;
+    font:bold 10px "Courier New",monospace;
 }
-
-.pending { background: #fff0c5; }
-
+.pill.Draft { background:#e5e5ee; }
+.pill.Closed { background:#f6deda; }
+.btn {
+    display:inline-block;
+    background:var(--blue);
+    color:white;
+    border:1px solid var(--navy);
+    padding:13px 18px;
+    margin-top:18px;
+    text-decoration:none;
+    font:bold 11px "Courier New",monospace;
+    box-shadow:3px 3px 0 var(--navy);
+}
+.btn-yellow {
+    background:var(--yellow);
+    color:var(--navy);
+}
+.notice {
+    background:var(--mint);
+    border:1px solid #789b82;
+    padding:14px;
+    margin:16px 0;
+}
+.warning {
+    background:#fff0c4;
+    border:1px solid #ba9b53;
+    padding:14px;
+    margin:16px 0;
+}
+.error {
+    background:#ffe2df;
+    border:1px solid #be7c71;
+    padding:14px;
+    margin:16px 0;
+}
+.table-scroll { overflow-x:auto; }
+table { width:100%; border-collapse:collapse; }
+th,td {
+    padding:13px;
+    border-bottom:1px solid var(--line);
+    text-align:left;
+}
+th {
+    background:#e8e8e3;
+    font:bold 11px "Courier New",monospace;
+}
 .score-grid {
-    display: grid;
-    grid-template-columns: repeat(5, minmax(0,1fr));
-    gap: 12px;
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    gap:12px;
 }
-
-.score-grid small { color: var(--muted); }
-
-.score-total {
-    background: #e4eaff;
-    border: 1px solid var(--navy);
-    margin-top: 22px;
-    padding: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.score-total strong {
-    font: bold 27px Georgia, serif;
-}
-
-.empty {
-    padding: 25px;
-    text-align: center;
-    color: var(--muted);
-}
-
 footer {
-    margin-top: 40px;
-    border-top: 1px solid var(--navy);
-    padding-top: 20px;
-    font: 11px "Courier New", monospace;
-    color: var(--muted);
+    margin-top:45px;
+    padding-top:20px;
+    border-top:1px solid var(--navy);
+    color:var(--muted);
+    font:11px "Courier New",monospace;
 }
-
-.logout-form { margin: 0; }
-.logout-btn {
-    background: transparent;
-    color: white;
-    border: 1px solid #8895af;
-    padding: 8px 12px;
-    font: bold 11px "Courier New", monospace;
+.authbox {
+    max-width:470px;
+    margin:55px auto;
+    background:var(--paper);
+    border:2px solid var(--navy);
+    padding:33px;
+    box-shadow:7px 7px 0 var(--navy);
 }
-
-@media(max-width: 950px) {
-    .workspace { grid-template-columns: 1fr; }
-    .columns { grid-template-columns: 1fr; }
-    .score-grid { grid-template-columns: repeat(2, 1fr); }
+@media(max-width:950px) {
+    .layout { grid-template-columns:1fr; }
+    .columns { grid-template-columns:1fr; }
+    .score-grid { grid-template-columns:repeat(2,1fr); }
 }
-
-@media(max-width: 650px) {
-    .shell { padding: 18px 12px; }
-    .stats { grid-template-columns: repeat(2,1fr); }
-    .stat .value { font-size: 32px; }
-    .stamp { display: none; }
-    .hero { padding: 25px; }
-    .topbar { flex-wrap: wrap; }
+@media(max-width:650px) {
+    .shell { padding:18px 12px; }
+    .stats { grid-template-columns:repeat(2,1fr); }
+    .stat strong { font-size:30px; }
+    .stamp { display:none; }
+    .hero { padding:23px; }
 }
 """
 
 
-# ================================================
-# ADMINISTRATOR LOGIN PAGE
-# ================================================
+def page(content, title="Challenge Control"):
+    return (
+        '<!DOCTYPE html><html lang="en"><head>'
+        '<meta charset="UTF-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>BridgeLab — ' + title + '</title>'
+        '<style>' + CSS + '</style></head><body>'
+        + content + '</body></html>'
+    )
 
-LOGIN_PAGE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BridgeLab — Administrator Access</title>
-<style>
-""" + STYLES + """
-body {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 20px;
-}
 
-.login-box {
-    width: 100%;
-    max-width: 450px;
-    background: var(--paper);
-    border: 2px solid var(--navy);
-    box-shadow: 8px 8px 0 var(--navy);
-    padding: 35px;
-}
+HEADER = """
+<div class="top">
+    <span>BRIDGELAB NETWORK // PROJECT SYSTEM</span>
+    <span>
+        <a href="/challenges">CHALLENGES</a> /
+        <a href="/participant/login">PARTICIPANT</a> /
+        <a href="/login">ADMIN</a>
+    </span>
+</div>
+<div class="shell">
+    <div class="brand">
+        <div>
+            <div class="logo">BridgeLab<span>.</span></div>
+            <div class="tagline">
+                BUILD SKILLS / SOLVE PROBLEMS / CREATE IMPACT
+            </div>
+        </div>
+        <div class="stamp">SYSTEM V6.0 / DEMO</div>
+    </div>
+"""
 
-.login-code {
-    background: var(--navy);
-    color: var(--yellow);
-    display: inline-block;
-    padding: 8px 12px;
-    font: bold 11px "Courier New", monospace;
-    margin-bottom: 20px;
-}
+FOOTER = """
+<footer>
+    BRIDGELAB / INDEPENDENT PROJECT INITIATIVE
+    — LOCAL DEVELOPMENT
+</footer></div>
+"""
 
-.login-title {
-    font: bold 35px Georgia, serif;
-    margin: 22px 0 8px;
-}
 
-.login-subtitle {
-    color: var(--muted);
-    line-height: 1.7;
-}
+# =============================================
+# AUTHENTICATION PAGES
+# =============================================
 
-.login-box .btn { width: 100%; }
+AUTH_TEMPLATE = page(
+    HEADER + """
+    <div class="authbox">
+        <div class="mono">/ SECURE ACCESS TERMINAL</div>
+        <h1 style="font: bold 34px Georgia,serif">
+            {{ title }}
+        </h1>
+        <p>{{ description }}</p>
 
-.login-footer {
-    margin-top: 30px;
-    font: 11px "Courier New", monospace;
-    color: var(--muted);
-}
-</style>
-</head>
-<body>
-<div class="login-box">
-    <div class="login-code">
-        BRIDGELAB SYSTEM / ACCESS GATE
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post">
+            <input type="hidden" name="_csrf" value="{{ csrf }}">
+
+            <label>USERNAME</label>
+            <input name="username" maxlength="40"
+                   autocomplete="username" required>
+
+            {% if register %}
+                <label>SKILL TRACK</label>
+                <select name="skill">
+                    {% for track in tracks %}
+                    <option>{{ track }}</option>
+                    {% endfor %}
+                </select>
+            {% endif %}
+
+            <label>PASSWORD</label>
+            <input type="password" name="password"
+                   minlength="{{ 12 if register else 1 }}"
+                   autocomplete="{{ 'new-password' if register else 'current-password' }}"
+                   required>
+
+            <button class="btn" type="submit">
+                {{ button_text }} →
+            </button>
+        </form>
+
+        <p style="margin-top:25px">
+            <a href="{{ alternate_url }}">{{ alternate_text }}</a>
+        </p>
+    </div>
+    """ + FOOTER,
+    "Account Access"
+)
+
+
+def render_auth(title, description, button, register=False,
+                error=None, alternate_url="/challenges",
+                alternate_text="Back to challenges"):
+    return render_template_string(
+        AUTH_TEMPLATE,
+        title=title,
+        description=description,
+        button_text=button,
+        register=register,
+        tracks=TRACKS,
+        csrf=token(),
+        error=error,
+        alternate_url=alternate_url,
+        alternate_text=alternate_text
+    )
+
+
+@app.route("/login", methods=["GET", "POST"])
+def admin_login():
+    if request.method == "POST":
+        check_token()
+
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        key = ("admin", request.remote_addr)
+
+        if not login_allowed(key):
+            error = "Too many attempts. Try again later."
+        else:
+            with get_db() as db:
+                account = db.execute(
+                    "SELECT * FROM admins WHERE username = ?",
+                    (username,)
+                ).fetchone()
+
+            if account and verify_password(
+                account["password_hash"], password
+            ):
+                LOGIN_ATTEMPTS.pop(key, None)
+                start_session(account["id"], "admin")
+                return redirect(url_for("admin_dashboard"))
+
+            record_failure(key)
+            error = "Invalid username or password."
+
+        return render_auth(
+            "Administrator Login",
+            "Private challenge management workspace.",
+            "Access Admin Dashboard",
+            error=error
+        ), 401
+
+    return render_auth(
+        "Administrator Login",
+        "Private challenge management workspace.",
+        "Access Admin Dashboard"
+    )
+
+
+@app.route("/participant/register", methods=["GET", "POST"])
+def participant_register():
+    if request.method == "POST":
+        check_token()
+
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        skill = request.form.get("skill", "")
+
+        if not valid_handle(username) or skill not in TRACKS:
+            error = "Invalid username or skill track."
+        elif len(password) < 12 or len(password) > 256:
+            error = "Use a password between 12 and 256 characters."
+        else:
+            try:
+                with get_db() as db:
+                    cursor = db.execute("""
+                        INSERT INTO participant_accounts
+                            (username, password_hash, skill)
+                        VALUES (?, ?, ?)
+                    """, (
+                        username,
+                        hash_password(password),
+                        skill
+                    ))
+                    db.commit()
+                    new_id = cursor.lastrowid
+
+                start_session(new_id, "participant")
+                return redirect(url_for("participant_dashboard"))
+
+            except sqlite3.IntegrityError:
+                error = "This username is already taken."
+
+        return render_auth(
+            "Join the Lab",
+            "Create a fictional demonstration account.",
+            "Create Account",
+            register=True,
+            error=error,
+            alternate_url="/participant/login",
+            alternate_text="Already have an account? Sign in"
+        ), 400
+
+    return render_auth(
+        "Join the Lab",
+        "Local test accounts only. Do not enter real personal information.",
+        "Create Account",
+        register=True,
+        alternate_url="/participant/login",
+        alternate_text="Already have an account? Sign in"
+    )
+
+
+@app.route("/participant/login", methods=["GET", "POST"])
+def participant_login():
+    if request.method == "POST":
+        check_token()
+
+        username = request.form.get("username", "").strip()
+        password = request.form.get("password", "")
+        key = ("participant", request.remote_addr)
+
+        if not login_allowed(key):
+            error = "Too many attempts. Try again later."
+        else:
+            with get_db() as db:
+                account = db.execute("""
+                    SELECT * FROM participant_accounts
+                    WHERE username = ?
+                """, (username,)).fetchone()
+
+            if account and verify_password(
+                account["password_hash"], password
+            ):
+                LOGIN_ATTEMPTS.pop(key, None)
+                start_session(account["id"], "participant")
+                return redirect(url_for("participant_dashboard"))
+
+            record_failure(key)
+            error = "Invalid username or password."
+
+        return render_auth(
+            "Participant Login",
+            "Access your personal project workspace.",
+            "Sign In",
+            error=error,
+            alternate_url="/participant/register",
+            alternate_text="Create a demo account"
+        ), 401
+
+    return render_auth(
+        "Participant Login",
+        "Access your personal project workspace.",
+        "Sign In",
+        alternate_url="/participant/register",
+        alternate_text="Create a demo account"
+    )
+
+
+@app.route("/logout", methods=["POST"])
+def logout():
+    check_token()
+    session.clear()
+    return redirect(url_for("public_challenges"))
+
+
+# =============================================
+# PUBLIC CHALLENGES
+# =============================================
+
+PUBLIC_TEMPLATE = page(
+    HEADER + """
+    <div class="hero" style="margin-top:25px">
+        <div class="mono gold">// PROJECT DIRECTORY</div>
+        <h1>Build. Learn. Prove.</h1>
+        <p>
+            Explore technical challenges designed around
+            practical problem-solving and portfolio development.
+        </p>
+        <a class="btn btn-yellow" href="/participant/register">
+            CREATE PARTICIPANT ACCOUNT →
+        </a>
     </div>
 
-    <div class="logo">BridgeLab<span>.</span></div>
-
-    <div class="login-title">
-        Welcome back.
+    <div class="warning">
+        LOCAL PROTOTYPE — Demo challenges and accounts only.
+        Not open for real applications.
     </div>
 
-    <p class="login-subtitle">
-        Authorized administrator access to the
-        BridgeLab Challenge Control workspace.
-    </p>
+    <div class="heading">
+        <h2>Open Challenges</h2>
+        <span class="mono">{{ challenges|length }} AVAILABLE</span>
+    </div>
+
+    {% for c in challenges %}
+    <article class="challenge">
+        <div class="mono">
+            PROJECT / {{ "%03d"|format(c.id) }}
+        </div>
+        <h3>{{ c.title }}</h3>
+        <span class="pill">{{ c.track }}</span>
+        <span class="pill">USD ${{ "%.2f"|format(c.prize_usd) }}</span>
+        <span class="pill">DUE {{ c.deadline }}</span>
+        <p>{{ c.description }}</p>
+        <p><strong>Deliverables:</strong> {{ c.deliverables }}</p>
+        <a class="btn" href="/participant">
+            VIEW IN WORKSPACE →
+        </a>
+    </article>
+    {% else %}
+        <div class="panel">
+            <div class="panel-body">
+                No Open challenges are available yet.
+                The first challenge is still being prepared.
+            </div>
+        </div>
+    {% endfor %}
+    """ + FOOTER,
+    "Challenge Directory"
+)
+
+
+@app.route("/challenges")
+def public_challenges():
+    with get_db() as db:
+        challenges = db.execute("""
+            SELECT * FROM challenges
+            WHERE status = 'Open'
+              AND deadline >= ?
+            ORDER BY deadline, id
+        """, (date.today().isoformat(),)).fetchall()
+
+    return render_template_string(
+        PUBLIC_TEMPLATE, challenges=challenges
+    )
+
+
+# =============================================
+# PARTICIPANT DASHBOARD
+# =============================================
+
+PARTICIPANT_TEMPLATE = page(
+    HEADER + """
+    <div class="layout">
+        <nav class="sidebar">
+            <div class="mono">/ PARTICIPANT DESK</div>
+            <a href="#overview">01 Overview</a>
+            <a href="#my-projects">02 My Projects</a>
+            <a href="#available">03 Challenges</a>
+            <form method="post" action="/logout">
+                <input type="hidden" name="_csrf" value="{{ csrf }}">
+                <button class="btn btn-yellow">LOG OUT</button>
+            </form>
+        </nav>
+
+        <main>
+            <div class="hero" id="overview">
+                <div class="mono gold">
+                    // PARTICIPANT WORKSPACE
+                </div>
+                <h1>Welcome, {{ account.username }}.</h1>
+                <p>
+                    Explore challenges, enroll in projects,
+                    and track your submitted work.
+                </p>
+                <span class="mono gold">{{ account.skill }}</span>
+            </div>
+
+            <div class="warning">
+                Test environment. All accounts and projects
+                must use fictional information.
+            </div>
+
+            {% if notice %}
+                <div class="notice">{{ notice }}</div>
+            {% endif %}
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+
+            <div class="heading" id="my-projects">
+                <h2>My Projects</h2>
+                <span class="mono">{{ enrollments|length }} ENROLLED</span>
+            </div>
+
+            {% for e in enrollments %}
+                <div class="challenge">
+                    <span class="mono">
+                        CHALLENGE {{ "%03d"|format(e.id) }}
+                    </span>
+                    <h3>{{ e.title }}</h3>
+                    <span class="pill">{{ e.status }}</span>
+                    <span class="pill">
+                        DUE {{ e.deadline or "NOT SET" }}
+                    </span>
+                    <span class="pill">
+                        {{ e.review_status or "Not Submitted" }}
+                    </span>
+
+                    {% if e.project_url %}
+                    <p>
+                        <a href="{{ e.project_url }}"
+                           target="_blank"
+                           rel="noopener noreferrer">
+                            View submitted project ↗
+                        </a>
+                    </p>
+                    {% endif %}
+
+                    {% if e.can_submit and e.review_status != "Under Review" %}
+                    <form method="post" action="/participant/submit">
+                        <input type="hidden"
+                               name="_csrf" value="{{ csrf }}">
+                        <input type="hidden"
+                               name="challenge_id" value="{{ e.id }}">
+                        <label>GITHUB REPOSITORY URL</label>
+                        <input name="project_url" type="url"
+                               placeholder="https://github.com/owner/repo"
+                               value="{{ e.project_url or '' }}"
+                               required>
+                        <button class="btn">
+                            SAVE PROJECT SUBMISSION
+                        </button>
+                    </form>
+                    {% else %}
+                    <p class="mono">
+                        SUBMISSION CURRENTLY UNAVAILABLE
+                    </p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <div class="panel">
+                    <div class="panel-body">
+                        You have not enrolled in a challenge.
+                    </div>
+                </div>
+            {% endfor %}
+
+            <div class="heading" id="available">
+                <h2>Available Challenges</h2>
+                <span class="mono">OPEN PROJECTS</span>
+            </div>
+
+            {% for c in challenges %}
+                <div class="challenge">
+                    <h3>{{ c.title }}</h3>
+                    <span class="pill">{{ c.track }}</span>
+                    <span class="pill">
+                        DUE {{ c.deadline }}
+                    </span>
+                    <p>{{ c.description }}</p>
+                    <p>
+                        <strong>Deliverables:</strong>
+                        {{ c.deliverables }}
+                    </p>
+                    <form method="post" action="/participant/enroll">
+                        <input type="hidden"
+                               name="_csrf" value="{{ csrf }}">
+                        <input type="hidden"
+                               name="challenge_id" value="{{ c.id }}">
+                        <button class="btn btn-yellow">
+                            ENROLL IN CHALLENGE →
+                        </button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="panel">
+                    <div class="panel-body">
+                        No new challenges available.
+                    </div>
+                </div>
+            {% endfor %}
+        </main>
+    </div>
+    """ + FOOTER,
+    "Participant Workspace"
+)
+
+
+@app.route("/participant")
+@participant_required
+def participant_dashboard():
+    participant_id = session["user_id"]
+
+    with get_db() as db:
+        account = db.execute("""
+            SELECT * FROM participant_accounts WHERE id = ?
+        """, (participant_id,)).fetchone()
+
+        rows = db.execute("""
+            SELECT c.*, s.project_url, s.review_status
+            FROM enrollments e
+            JOIN challenges c ON e.challenge_id = c.id
+            LEFT JOIN challenge_submissions s
+                ON s.challenge_id = c.id
+                AND s.participant_id = e.participant_id
+            WHERE e.participant_id = ?
+            ORDER BY e.id DESC
+        """, (participant_id,)).fetchall()
+
+        available = db.execute("""
+            SELECT * FROM challenges
+            WHERE status = 'Open' AND deadline >= ?
+            AND id NOT IN (
+                SELECT challenge_id FROM enrollments
+                WHERE participant_id = ?
+            )
+            ORDER BY deadline
+        """, (
+            date.today().isoformat(),
+            participant_id
+        )).fetchall()
+
+    enrollments = []
+
+    for row in rows:
+        item = dict(row)
+        item["can_submit"] = is_open(row)
+        enrollments.append(item)
+
+    return render_template_string(
+        PARTICIPANT_TEMPLATE,
+        account=account,
+        enrollments=enrollments,
+        challenges=available,
+        csrf=token(),
+        notice=request.args.get("notice"),
+        error=request.args.get("error")
+    )
+
+
+def participant_message(text, error=False):
+    return redirect(url_for(
+        "participant_dashboard",
+        **{"error" if error else "notice": text}
+    ))
+
+
+@app.route("/participant/enroll", methods=["POST"])
+@participant_required
+def participant_enroll():
+    check_token()
+
+    try:
+        challenge_id = int(request.form.get("challenge_id", ""))
+    except ValueError:
+        return participant_message("Invalid challenge.", True)
+
+    with get_db() as db:
+        challenge = db.execute(
+            "SELECT * FROM challenges WHERE id = ?",
+            (challenge_id,)
+        ).fetchone()
+
+        if challenge is None or not is_open(challenge):
+            return participant_message(
+                "Challenge is not open for enrollment.", True
+            )
+
+        db.execute("""
+            INSERT OR IGNORE INTO enrollments
+            (participant_id, challenge_id)
+            VALUES (?, ?)
+        """, (session["user_id"], challenge_id))
+        db.commit()
+
+    return participant_message("Enrolled successfully.")
+
+
+@app.route("/participant/submit", methods=["POST"])
+@participant_required
+def participant_submit():
+    check_token()
+
+    try:
+        challenge_id = int(request.form.get("challenge_id", ""))
+    except ValueError:
+        return participant_message("Invalid challenge.", True)
+
+    project_url = request.form.get("project_url", "").strip()
+
+    if not valid_github(project_url):
+        return participant_message(
+            "Enter a valid GitHub repository URL.", True
+        )
+
+    with get_db() as db:
+        enrolled = db.execute("""
+            SELECT c.*, s.review_status
+            FROM enrollments e
+            JOIN challenges c ON c.id = e.challenge_id
+            LEFT JOIN challenge_submissions s
+                ON s.challenge_id = c.id
+                AND s.participant_id = e.participant_id
+            WHERE e.participant_id = ? AND e.challenge_id = ?
+        """, (session["user_id"], challenge_id)).fetchone()
+
+        if enrolled is None or not is_open(enrolled):
+            return participant_message(
+                "Challenge is closed or enrollment is missing.",
+                True
+            )
+
+        if enrolled["review_status"] == "Under Review":
+            return participant_message(
+                "Submission is locked for review.", True
+            )
+
+        db.execute("""
+            INSERT INTO challenge_submissions
+                (participant_id, challenge_id, project_url)
+            VALUES (?, ?, ?)
+            ON CONFLICT(participant_id, challenge_id)
+            DO UPDATE SET
+                project_url = excluded.project_url,
+                review_status = 'Submitted',
+                submitted_at = CURRENT_TIMESTAMP
+        """, (
+            session["user_id"], challenge_id, project_url
+        ))
+        db.commit()
+
+    return participant_message("Project saved successfully.")
+
+
+# =============================================
+# ADMIN DASHBOARD
+# =============================================
+
+ADMIN_TEMPLATE = page(
+    HEADER + """
+    <div class="layout">
+        <nav class="sidebar">
+            <div class="mono">/ ADMIN WORKSPACE</div>
+            <a href="#overview">01 Overview</a>
+            <a href="#challenges">02 Challenges</a>
+            <a href="#editor">03 Challenge Editor</a>
+            <a href="#participants">04 Legacy Demo</a>
+            <a href="#submissions">05 New Submissions</a>
+            <a href="#leaderboard">06 Legacy Leaderboard</a>
+            <form action="/logout" method="post">
+                <input type="hidden"
+                       name="_csrf" value="{{ csrf }}">
+                <button class="btn btn-yellow">LOG OUT</button>
+            </form>
+        </nav>
+
+        <main>
+            <div class="hero" id="overview">
+                <div class="mono gold">
+                    // AUTHORIZED ADMINISTRATOR
+                </div>
+                <h1>BridgeLab Control Center.</h1>
+                <p>
+                    Manage challenges, monitor participants,
+                    and oversee the project lifecycle.
+                </p>
+                <span class="mono gold">
+                    ADMIN: {{ admin_name }}
+                </span>
+            </div>
+
+            <div class="warning">
+                V6 LOCAL DEMO: Do not invite real participants.
+                Authentication and workflows require more testing.
+            </div>
+
+            {% if notice %}
+                <div class="notice">{{ notice }}</div>
+            {% endif %}
+            {% if error %}
+                <div class="error">{{ error }}</div>
+            {% endif %}
+
+            <div class="heading">
+                <h2>Control Overview</h2>
+                <span class="mono">LIVE DATABASE</span>
+            </div>
+
+            <div class="stats">
+                <div class="stat">
+                    <span class="mono">CHALLENGES</span>
+                    <strong>{{ challenges|length }}</strong>
+                </div>
+                <div class="stat">
+                    <span class="mono">NEW ACCOUNTS</span>
+                    <strong>{{ account_count }}</strong>
+                </div>
+                <div class="stat">
+                    <span class="mono">NEW SUBMISSIONS</span>
+                    <strong>{{ new_submissions|length }}</strong>
+                </div>
+                <div class="stat">
+                    <span class="mono">LEGACY SCORES</span>
+                    <strong>{{ legacy_scores|length }}</strong>
+                </div>
+            </div>
+
+            <div class="heading" id="challenges">
+                <h2>Challenge Catalog</h2>
+                <span class="mono">PROJECT LIBRARY</span>
+            </div>
+
+            {% for c in challenges %}
+            <article class="challenge">
+                <div class="mono">
+                    CHALLENGE / {{ "%03d"|format(c.id) }}
+                </div>
+                <h3>{{ c.title }}</h3>
+                <span class="pill {{ c.status }}">{{ c.status }}</span>
+                <span class="pill">{{ c.track }}</span>
+                <span class="pill">
+                    ${{ "%.2f"|format(c.prize_usd) }} USD
+                </span>
+                <span class="pill">
+                    DUE {{ c.deadline or "NOT SET" }}
+                </span>
+                <p>{{ c.description }}</p>
+                <p><strong>Deliverables:</strong>
+                    {{ c.deliverables }}</p>
+                <a class="btn btn-yellow"
+                   href="/admin/challenge/{{ c.id }}/edit">
+                    EDIT CHALLENGE →
+                </a>
+            </article>
+            {% endfor %}
+
+            <div class="heading" id="editor">
+                <h2>Create a Challenge</h2>
+                <span class="mono">NEW PROJECT</span>
+            </div>
+
+            <div class="panel">
+                <div class="panel-head">CHALLENGE CONFIGURATION</div>
+                <div class="panel-body">
+                    <form method="post" action="/admin/challenge/save">
+                        <input type="hidden" name="_csrf"
+                               value="{{ csrf }}">
+                        <label>TITLE</label>
+                        <input name="title" maxlength="120" required>
+
+                        <label>SKILL TRACK</label>
+                        <select name="track">
+                            {% for track in tracks %}
+                            <option>{{ track }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <label>DESCRIPTION</label>
+                        <textarea name="description" required></textarea>
+
+                        <label>DELIVERABLES</label>
+                        <textarea name="deliverables" required></textarea>
+
+                        <div class="columns">
+                            <div>
+                                <label>DEADLINE</label>
+                                <input type="date" name="deadline">
+                            </div>
+                            <div>
+                                <label>PRIZE USD</label>
+                                <input name="prize_usd" type="number"
+                                       min="0" step=".01" value="0">
+                            </div>
+                        </div>
+
+                        <label>STATUS</label>
+                        <select name="status">
+                            {% for status in statuses %}
+                            <option>{{ status }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <button class="btn">CREATE CHALLENGE</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="heading" id="participants">
+                <h2>Legacy Demo Records</h2>
+                <span class="mono">PRESERVED FROM V5</span>
+            </div>
+
+            <div class="panel table-scroll">
+                <table>
+                    <tr>
+                        <th>PARTICIPANT</th>
+                        <th>SKILL</th>
+                        <th>PROJECT</th>
+                        <th>SCORE</th>
+                    </tr>
+                    {% for p in legacy %}
+                    <tr>
+                        <td>{{ p.username }}</td>
+                        <td>{{ p.skill }}</td>
+                        <td>
+                            {% if p.project_url %}
+                            <a href="{{ p.project_url }}"
+                               target="_blank"
+                               rel="noopener noreferrer">VIEW ↗</a>
+                            {% else %}PENDING{% endif %}
+                        </td>
+                        <td>
+                            {{ p.total_score if p.total_score is not none else "—" }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <div class="heading" id="submissions">
+                <h2>Challenge Submissions</h2>
+                <span class="mono">V6 WORKFLOW</span>
+            </div>
+
+            <div class="panel table-scroll">
+                <table>
+                    <tr>
+                        <th>PARTICIPANT</th>
+                        <th>CHALLENGE</th>
+                        <th>PROJECT</th>
+                        <th>STATUS</th>
+                    </tr>
+                    {% for s in new_submissions %}
+                    <tr>
+                        <td>{{ s.username }}</td>
+                        <td>{{ s.title }}</td>
+                        <td>
+                            <a href="{{ s.project_url }}"
+                               target="_blank"
+                               rel="noopener noreferrer">VIEW ↗</a>
+                        </td>
+                        <td>{{ s.review_status }}</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="4">
+                        NO CHALLENGE-LINKED SUBMISSIONS YET
+                    </td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+
+            <div class="heading" id="leaderboard">
+                <h2>Legacy Leaderboard</h2>
+                <span class="mono">DEMO SCORES</span>
+            </div>
+            <div class="panel table-scroll">
+                <table>
+                    <tr>
+                        <th>RANK</th>
+                        <th>PARTICIPANT</th>
+                        <th>SCORE</th>
+                    </tr>
+                    {% for s in legacy_scores %}
+                    <tr>
+                        <td>#{{ loop.index }}</td>
+                        <td>{{ s.username }}</td>
+                        <td>{{ s.total_score }}/100</td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3">NO DEMO SCORES</td></tr>
+                    {% endfor %}
+                </table>
+            </div>
+        </main>
+    </div>
+    """ + FOOTER,
+    "Admin Control V6"
+)
+
+
+@app.route("/")
+@admin_required
+def admin_dashboard():
+    with get_db() as db:
+        admin = db.execute(
+            "SELECT username FROM admins WHERE id = ?",
+            (session["user_id"],)
+        ).fetchone()
+
+        challenges = db.execute(
+            "SELECT * FROM challenges ORDER BY id DESC"
+        ).fetchall()
+
+        account_count = db.execute(
+            "SELECT COUNT(*) FROM participant_accounts"
+        ).fetchone()[0]
+
+        new_submissions = db.execute("""
+            SELECT a.username, c.title,
+                   s.project_url, s.review_status
+            FROM challenge_submissions s
+            JOIN participant_accounts a ON a.id = s.participant_id
+            JOIN challenges c ON c.id = s.challenge_id
+            ORDER BY s.submitted_at DESC
+        """).fetchall()
+
+        legacy = db.execute("""
+            SELECT p.*, s.project_url, e.total_score
+            FROM participants p
+            LEFT JOIN submissions s ON s.participant_id = p.id
+            LEFT JOIN evaluations e ON e.participant_id = p.id
+            ORDER BY p.id
+        """).fetchall()
+
+    legacy_scores = sorted(
+        [p for p in legacy if p["total_score"] is not None],
+        key=lambda p: (-p["total_score"], p["id"])
+    )
+
+    return render_template_string(
+        ADMIN_TEMPLATE,
+        admin_name=admin["username"],
+        challenges=challenges,
+        account_count=account_count,
+        new_submissions=new_submissions,
+        legacy=legacy,
+        legacy_scores=legacy_scores,
+        tracks=TRACKS,
+        statuses=STATUSES,
+        csrf=token(),
+        notice=request.args.get("notice"),
+        error=request.args.get("error")
+    )
+
+
+# =============================================
+# CHALLENGE CREATION AND EDITING
+# =============================================
+
+EDIT_TEMPLATE = page(
+    HEADER + """
+    <div class="heading">
+        <h2>Edit Challenge</h2>
+        <span class="mono">PROJECT / {{ challenge.id }}</span>
+    </div>
 
     {% if error %}
         <div class="error">{{ error }}</div>
     {% endif %}
 
-    <form method="post">
-        <input type="hidden"
-               name="_csrf"
-               value="{{ csrf }}">
+    <div class="panel">
+        <div class="panel-body">
+            <form action="/admin/challenge/save" method="post">
+                <input type="hidden" name="_csrf" value="{{ csrf }}">
+                <input type="hidden" name="challenge_id"
+                       value="{{ challenge.id }}">
 
-        <label>ADMIN USERNAME</label>
-        <input name="username"
-               autocomplete="username"
-               required>
+                <label>TITLE</label>
+                <input name="title" value="{{ challenge.title }}"
+                       required>
 
-        <label>PASSWORD</label>
-        <input name="password"
-               type="password"
-               autocomplete="current-password"
-               required>
+                <label>SKILL TRACK</label>
+                <select name="track">
+                    {% for t in tracks %}
+                    <option {% if t == challenge.track %}selected{% endif %}>
+                        {{ t }}
+                    </option>
+                    {% endfor %}
+                </select>
 
-        <button class="btn" type="submit">
-            → ACCESS WORKSPACE
-        </button>
-    </form>
+                <label>DESCRIPTION</label>
+                <textarea name="description"
+                          required>{{ challenge.description }}</textarea>
 
-    <div class="login-footer">
-        V4.0 / PRIVATE ADMIN PORTAL / LOCAL DEVELOPMENT
-    </div>
-</div>
-</body>
-</html>
-"""
+                <label>DELIVERABLES</label>
+                <textarea name="deliverables"
+                          required>{{ challenge.deliverables }}</textarea>
 
+                <label>DEADLINE</label>
+                <input type="date" name="deadline"
+                       value="{{ challenge.deadline or '' }}">
 
-# ================================================
-# ADMINISTRATOR DASHBOARD
-# ================================================
+                <label>PRIZE USD</label>
+                <input type="number" name="prize_usd"
+                       min="0" step=".01"
+                       value="{{ challenge.prize_usd }}" required>
 
-DASHBOARD_PAGE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BridgeLab — Challenge Control V4</title>
-<style>
-""" + STYLES + """
-</style>
-</head>
+                <label>STATUS</label>
+                <select name="status">
+                    {% for s in statuses %}
+                    <option {% if s == challenge.status %}selected{% endif %}>
+                        {{ s }}
+                    </option>
+                    {% endfor %}
+                </select>
 
-<body>
-
-<div class="topbar">
-    <span>BRIDGELAB NETWORK // CHALLENGE CONTROL</span>
-
-    <form class="logout-form" action="/logout" method="post">
-        <input type="hidden" name="_csrf" value="{{ csrf }}">
-        <span style="margin-right:12px">
-            ADMIN: {{ admin_username }}
-        </span>
-        <button class="logout-btn" type="submit">
-            LOG OUT ↗
-        </button>
-    </form>
-</div>
-
-<div class="shell">
-
-    <div class="masthead">
-        <div>
-            <div class="logo">BridgeLab<span>.</span></div>
-            <div class="motto">
-                BUILD SKILLS / SOLVE PROBLEMS / CREATE IMPACT
-            </div>
-        </div>
-        <div class="stamp">
-            SYSTEM V4.0<br>
-            ADMIN ACCESS
+                <button class="btn">SAVE CHANGES</button>
+                <a class="btn btn-yellow" href="/">BACK TO ADMIN</a>
+            </form>
         </div>
     </div>
+    """ + FOOTER,
+    "Edit Challenge"
+)
 
-    <div class="workspace">
 
-        <aside class="sidebar">
-            <div class="sidebox">
-                <div class="mono" style="margin-bottom:15px">
-                    / WORKSPACE DIRECTORY
-                </div>
-
-                <a class="nav" href="#overview">
-                    <span>01</span> Overview
-                </a>
-                <a class="nav" href="#participants">
-                    <span>02</span> Participants
-                </a>
-                <a class="nav" href="#submissions">
-                    <span>03</span> Submissions
-                </a>
-                <a class="nav" href="#evaluation">
-                    <span>04</span> Evaluation
-                </a>
-                <a class="nav" href="#leaderboard">
-                    <span>05</span> Leaderboard
-                </a>
-            </div>
-
-            <div class="side-note">
-                <strong>PROJECT FILE / 001</strong>
-                <p>Retail Analytics Challenge</p>
-                <small>Independent technical initiative.</small>
-            </div>
-        </aside>
-
-        <main>
-
-            <section id="overview">
-                <div class="hero">
-                    <div class="eyebrow">
-                        // AUTHORIZED CONTROL WORKSPACE
-                    </div>
-
-                    <h1>
-                        Build something that matters.
-                    </h1>
-
-                    <p>
-                        Monitor participant progress, manage
-                        technical submissions, evaluate projects,
-                        and coordinate meaningful challenges.
-                    </p>
-
-                    <div class="mono" style="color:#f5d46c">
-                        SESSION ACTIVE / ADMINISTRATOR
-                    </div>
-                </div>
-
-                <div class="notice">
-                    <strong>LOCAL DEMO:</strong>
-                    Use fictional participant records only.
-                    Further security work is required before
-                    a public launch.
-                </div>
-
-                {% if notice %}
-                    <div class="success">{{ notice }}</div>
-                {% endif %}
-
-                {% if error %}
-                    <div class="error">{{ error }}</div>
-                {% endif %}
-
-                <div class="heading">
-                    <h2>Control overview</h2>
-                    <small>01 / METRICS</small>
-                </div>
-
-                <div class="stats">
-                    <div class="stat">
-                        <div class="label">REGISTERED</div>
-                        <div class="value">{{ total }}</div>
-                    </div>
-
-                    <div class="stat">
-                        <div class="label">SUBMISSIONS</div>
-                        <div class="value">{{ submitted }}</div>
-                    </div>
-
-                    <div class="stat">
-                        <div class="label">PENDING</div>
-                        <div class="value">{{ pending }}</div>
-                    </div>
-
-                    <div class="stat">
-                        <div class="label">EVALUATED</div>
-                        <div class="value">{{ evaluated }}</div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="participants">
-
-                <div class="heading">
-                    <h2>Participant management</h2>
-                    <small>02 / INTAKE</small>
-                </div>
-
-                <div class="columns">
-
-                    <div class="panel">
-                        <div class="panel-head">
-                            <span>+ NEW REGISTRATION</span>
-                            <span>FORM 01</span>
-                        </div>
-
-                        <div class="panel-body">
-                            <p>
-                                Create a fictional participant record
-                                for testing the platform.
-                            </p>
-
-                            <form action="/register" method="post">
-                                <input type="hidden"
-                                       name="_csrf"
-                                       value="{{ csrf }}">
-
-                                <label>PARTICIPANT HANDLE</label>
-                                <input name="username"
-                                       maxlength="40"
-                                       required>
-
-                                <label>SKILL TRACK</label>
-                                <select name="skill">
-                                    <option>Data Analytics</option>
-                                    <option>Software Development</option>
-                                    <option>Business Analysis</option>
-                                </select>
-
-                                <button class="btn" type="submit">
-                                    + ADD PARTICIPANT
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                    <div class="panel">
-                        <div class="panel-head">
-                            <span>↗ PROJECT SUBMISSION</span>
-                            <span>FORM 02</span>
-                        </div>
-
-                        <div class="panel-body">
-                            <p>
-                                Record a GitHub project URL
-                                for a demonstration participant.
-                            </p>
-
-                            <form action="/submit" method="post">
-                                <input type="hidden"
-                                       name="_csrf"
-                                       value="{{ csrf }}">
-
-                                <label>PARTICIPANT</label>
-                                <select name="participant_id" required>
-                                    <option value="">Choose participant</option>
-                                    {% for p in participants %}
-                                    <option value="{{ p.id }}">
-                                        BL-{{ "%03d"|format(p.id) }}
-                                        / {{ p.username }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-
-                                <label>GITHUB REPOSITORY URL</label>
-                                <input type="url" name="project_url"
-                                       maxlength="500"
-                                       required
-                                       placeholder="https://github.com/owner/repo">
-
-                                <button class="btn" type="submit"
-                                    {% if not participants %}disabled{% endif %}>
-                                    ↗ SAVE SUBMISSION
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-
-                </div>
-            </section>
-
-            <section id="submissions">
-
-                <div class="heading">
-                    <h2>Submission register</h2>
-                    <small>03 / RECORDS</small>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-head">
-                        <span>PARTICIPANT DATABASE</span>
-                        <span>{{ total }} RECORDS</span>
-                    </div>
-
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>PARTICIPANT</th>
-                                    <th>TRACK</th>
-                                    <th>STATUS</th>
-                                    <th>SCORE</th>
-                                    <th>PROJECT</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {% for p in participants %}
-                                <tr>
-                                    <td class="mono">
-                                        BL-{{ "%03d"|format(p.id) }}
-                                    </td>
-                                    <td>{{ p.username }}</td>
-                                    <td>{{ p.skill }}</td>
-                                    <td>
-                                        {% if p.project_url %}
-                                            <span class="pill">SUBMITTED</span>
-                                        {% else %}
-                                            <span class="pill pending">PENDING</span>
-                                        {% endif %}
-                                    </td>
-                                    <td class="mono">
-                                        {% if p.total_score is not none %}
-                                            {{ p.total_score }}/100
-                                        {% else %}
-                                            —
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if p.project_url %}
-                                        <a href="{{ p.project_url }}"
-                                           target="_blank"
-                                           rel="noopener noreferrer">
-                                            View ↗
-                                        </a>
-                                        {% else %}
-                                        —
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="6" class="empty">
-                                        NO PARTICIPANTS YET
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <section id="evaluation">
-
-                <div class="heading">
-                    <h2>Evaluation desk</h2>
-                    <small>04 / SCORING</small>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-head">
-                        <span>TECHNICAL ASSESSMENT</span>
-                        <span>100 POINTS MAXIMUM</span>
-                    </div>
-
-                    <div class="panel-body">
-                        <p>
-                            Apply the BridgeLab scoring rubric
-                            to a submitted demonstration project.
-                        </p>
-
-                        <form action="/score" method="post">
-                            <input type="hidden"
-                                   name="_csrf"
-                                   value="{{ csrf }}">
-
-                            <label>SELECT SUBMITTED PROJECT</label>
-
-                            <select name="participant_id" required>
-                                <option value="">Choose participant</option>
-                                {% for p in participants %}
-                                    {% if p.project_url %}
-                                    <option value="{{ p.id }}">
-                                        {{ p.username }}
-                                    </option>
-                                    {% endif %}
-                                {% endfor %}
-                            </select>
-
-                            <div class="score-grid">
-                                {% for key, maximum in criteria.items() %}
-                                <div>
-                                    <label>
-                                        {{ labels[key] }}
-                                        <br>
-                                        <small>MAX {{ maximum }}</small>
-                                    </label>
-
-                                    <input class="score-input"
-                                           name="{{ key }}"
-                                           type="number"
-                                           min="0"
-                                           max="{{ maximum }}"
-                                           value="0"
-                                           step="1"
-                                           required>
-                                </div>
-                                {% endfor %}
-                            </div>
-
-                            <div class="score-total">
-                                <span class="mono">
-                                    LIVE SCORE PREVIEW
-                                </span>
-                                <strong id="score-total">
-                                    0 / 100
-                                </strong>
-                            </div>
-
-                            <button class="btn btn-yellow"
-                                    type="submit"
-                                    {% if submitted == 0 %}disabled{% endif %}>
-                                ✓ SAVE EVALUATION
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </section>
-
-            <section id="leaderboard">
-
-                <div class="heading">
-                    <h2>Challenge leaderboard</h2>
-                    <small>05 / PROVISIONAL</small>
-                </div>
-
-                <div class="panel">
-                    <div class="panel-head">
-                        <span>PROJECT RANKINGS</span>
-                        <span>HUMAN REVIEW REQUIRED</span>
-                    </div>
-
-                    <div class="table-scroll">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>RANK</th>
-                                    <th>PARTICIPANT</th>
-                                    <th>TRACK</th>
-                                    <th>SCORE</th>
-                                    <th>STATUS</th>
-                                </tr>
-                            </thead>
-
-                            <tbody>
-                                {% for entry in leaderboard %}
-                                <tr>
-                                    <td class="mono">#{{ loop.index }}</td>
-                                    <td>{{ entry.username }}</td>
-                                    <td>{{ entry.skill }}</td>
-                                    <td class="mono">
-                                        {{ entry.total_score }}/100
-                                    </td>
-                                    <td>
-                                        <span class="pill">PROVISIONAL</span>
-                                    </td>
-                                </tr>
-                                {% else %}
-                                <tr>
-                                    <td colspan="5" class="empty">
-                                        NO EVALUATIONS YET
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </section>
-
-            <footer>
-                BRIDGELAB / INDEPENDENT TECHNICAL INITIATIVE
-                / V4 ADMIN CONTROL
-            </footer>
-
-        </main>
-    </div>
-</div>
-
-<script>
-document.querySelectorAll(".score-input").forEach(input => {
-    input.addEventListener("input", () => {
-        let total = 0;
-
-        document.querySelectorAll(".score-input")
-            .forEach(field => {
-                total += Number(field.value) || 0;
-            });
-
-        document.getElementById("score-total")
-            .textContent = total + " / 100";
-    });
-});
-</script>
-
-</body>
-</html>
-"""
-
-
-# ================================================
-# ADMINISTRATOR LOGIN
-# ================================================
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-
-    if session.get("admin_id"):
-        return redirect(url_for("dashboard"))
-
-    error = None
-
-    if request.method == "POST":
-        verify_csrf()
-
-        username = request.form.get(
-            "username", ""
-        ).strip()
-
-        password = request.form.get(
-            "password", ""
-        )
-
-        client_key = request.remote_addr or "local"
-        now = time.monotonic()
-
-        attempts = [
-            attempt for attempt in
-            LOGIN_ATTEMPTS.get(client_key, [])
-            if now - attempt < LOCK_SECONDS
-        ]
-
-        if len(attempts) >= MAX_ATTEMPTS:
-            error = "Too many attempts. Try again later."
-
-        else:
-            with get_db() as db:
-                admin = db.execute("""
-                    SELECT id, username, password_hash
-                    FROM admins
-                    WHERE username = ?
-                """, (username,)).fetchone()
-
-            if admin and verify_password(
-                admin["password_hash"], password
-            ):
-                LOGIN_ATTEMPTS.pop(client_key, None)
-                session.clear()
-                session["admin_id"] = admin["id"]
-                session.permanent = True
-                session["_csrf"] = secrets.token_urlsafe(32)
-
-                return redirect(url_for("dashboard"))
-
-            attempts.append(now)
-            LOGIN_ATTEMPTS[client_key] = attempts
-            error = "Invalid username or password."
-
-    return render_template_string(
-        LOGIN_PAGE,
-        csrf=csrf_token(),
-        error=error
-    ), 401 if error else 200
-
-
-# ================================================
-# ADMINISTRATOR LOGOUT
-# ================================================
-
-@app.route("/logout", methods=["POST"])
+@app.route("/admin/challenge/<int:challenge_id>/edit")
 @admin_required
-def logout():
-    verify_csrf()
-    session.clear()
-    return redirect(url_for("login"))
-
-
-# ================================================
-# PROTECTED ADMIN DASHBOARD
-# ================================================
-
-@app.route("/")
-@admin_required
-def dashboard():
-
+def edit_challenge(challenge_id):
     with get_db() as db:
-
-        participants = db.execute("""
-            SELECT
-                p.id, p.username, p.skill,
-                s.project_url, e.total_score
-            FROM participants p
-            LEFT JOIN submissions s
-                ON p.id = s.participant_id
-            LEFT JOIN evaluations e
-                ON p.id = e.participant_id
-            ORDER BY p.id DESC
-        """).fetchall()
-
-        reviewed = db.execute("""
-            SELECT
-                p.id AS participant_id,
-                p.username, p.skill,
-                e.technical_accuracy,
-                e.problem_solving,
-                e.presentation,
-                e.originality,
-                e.documentation
-            FROM evaluations e
-            JOIN participants p
-                ON e.participant_id = p.id
-            JOIN submissions s
-                ON s.participant_id = p.id
-        """).fetchall()
-
-        admin = db.execute("""
-            SELECT username FROM admins WHERE id = ?
-        """, (session["admin_id"],)).fetchone()
-
-    evaluations = [
-        Evaluation(
-            participant_id=row["participant_id"],
-            **{key: row[key] for key in CRITERIA}
-        )
-        for row in reviewed
-    ]
-
-    ranked = rank_submissions(evaluations)
-    people = {p["id"]: p for p in participants}
-
-    leaderboard = [
-        {
-            **entry,
-            "username": people[entry["participant_id"]]["username"],
-            "skill": people[entry["participant_id"]]["skill"]
-        }
-        for entry in ranked
-    ]
-
-    submitted = sum(
-        bool(p["project_url"]) for p in participants
-    )
-
-    evaluated = sum(
-        p["total_score"] is not None
-        for p in participants
-    )
-
-    return render_template_string(
-        DASHBOARD_PAGE,
-        admin_username=admin["username"],
-        csrf=csrf_token(),
-        participants=participants,
-        total=len(participants),
-        submitted=submitted,
-        pending=len(participants) - submitted,
-        evaluated=evaluated,
-        leaderboard=leaderboard,
-        criteria=CRITERIA,
-        labels=LABELS,
-        notice=request.args.get("notice", ""),
-        error=request.args.get("error", "")
-    )
-
-
-# ================================================
-# PROTECTED REGISTRATION
-# ================================================
-
-@app.route("/register", methods=["POST"])
-@admin_required
-def register():
-    verify_csrf()
-
-    username = request.form.get(
-        "username", ""
-    ).strip()
-
-    skill = request.form.get("skill", "")
-
-    allowed = {
-        "Data Analytics",
-        "Software Development",
-        "Business Analysis"
-    }
-
-    if not (
-        1 <= len(username) <= 40
-        and all(
-            c.isalnum() or c in "_-"
-            for c in username
-        )
-    ):
-        return notify("Invalid participant handle.", True)
-
-    if skill not in allowed:
-        return notify("Invalid skill track.", True)
-
-    try:
-        with get_db() as db:
-            db.execute("""
-                INSERT INTO participants (username, skill)
-                VALUES (?, ?)
-            """, (username, skill))
-            db.commit()
-
-    except sqlite3.IntegrityError:
-        return notify("Participant already exists.", True)
-
-    return notify("Participant registered successfully.")
-
-
-# ================================================
-# PROTECTED PROJECT SUBMISSIONS
-# ================================================
-
-@app.route("/submit", methods=["POST"])
-@admin_required
-def submit():
-    verify_csrf()
-
-    try:
-        participant_id = int(
-            request.form.get("participant_id", "")
-        )
-    except ValueError:
-        return notify("Invalid participant.", True)
-
-    project_url = request.form.get(
-        "project_url", ""
-    ).strip()
-
-    parsed = urlparse(project_url)
-    parts = parsed.path.strip("/").split("/")
-
-    valid = (
-        parsed.scheme == "https"
-        and parsed.hostname == "github.com"
-        and not parsed.username
-        and not parsed.password
-        and parsed.port in (None, 443)
-        and len(parts) >= 2
-        and all(parts[:2])
-        and len(project_url) <= 500
-    )
-
-    if not valid:
-        return notify(
-            "Enter a valid GitHub project URL.", True
-        )
-
-    with get_db() as db:
-        participant = db.execute(
-            "SELECT id FROM participants WHERE id = ?",
-            (participant_id,)
+        challenge = db.execute(
+            "SELECT * FROM challenges WHERE id = ?",
+            (challenge_id,)
         ).fetchone()
 
-        if not participant:
-            return notify("Participant not found.", True)
+    if challenge is None:
+        abort(404)
 
-        previous = db.execute("""
-            SELECT project_url FROM submissions
-            WHERE participant_id = ?
-        """, (participant_id,)).fetchone()
-
-        db.execute("""
-            INSERT INTO submissions
-                (participant_id, project_url)
-            VALUES (?, ?)
-            ON CONFLICT(participant_id)
-            DO UPDATE SET
-                project_url = excluded.project_url,
-                submitted_at = CURRENT_TIMESTAMP
-        """, (participant_id, project_url))
-
-        if (
-            previous
-            and previous["project_url"] != project_url
-        ):
-            db.execute("""
-                DELETE FROM evaluations
-                WHERE participant_id = ?
-            """, (participant_id,))
-
-        db.commit()
-
-    return notify("Project submission recorded.")
+    return render_template_string(
+        EDIT_TEMPLATE,
+        challenge=challenge,
+        tracks=TRACKS,
+        statuses=STATUSES,
+        csrf=token(),
+        error=request.args.get("error")
+    )
 
 
-# ================================================
-# PROTECTED EVALUATION
-# ================================================
-
-@app.route("/score", methods=["POST"])
+@app.route("/admin/challenge/save", methods=["POST"])
 @admin_required
-def score():
-    verify_csrf()
+def save_challenge():
+    check_token()
+
+    raw_id = request.form.get("challenge_id", "").strip()
 
     try:
-        participant_id = int(
-            request.form.get("participant_id", "")
-        )
+        challenge_id = int(raw_id) if raw_id else None
+        title = request.form.get("title", "").strip()
+        track = request.form.get("track", "")
+        status = request.form.get("status", "")
+        description = request.form.get("description", "").strip()
+        deliverables = request.form.get("deliverables", "").strip()
+        deadline = request.form.get("deadline", "").strip()
+        prize = float(request.form.get("prize_usd", "0"))
 
-        scores = {
-            key: int(request.form.get(key, ""))
-            for key in CRITERIA
-        }
+        if not (
+            1 <= len(title) <= 120
+            and track in TRACKS
+            and status in STATUSES
+            and 1 <= len(description) <= 3000
+            and 1 <= len(deliverables) <= 3000
+            and 0 <= prize <= 100000
+            and prize == prize
+        ):
+            raise ValueError("Invalid challenge fields.")
 
-        evaluation = Evaluation(
-            participant_id=participant_id,
-            **scores
-        )
+        if deadline:
+            date.fromisoformat(deadline)
 
-        total = evaluation.calculate_total()
+        if status == "Open":
+            if not deadline or deadline <= date.today().isoformat():
+                raise ValueError("An Open challenge needs a future deadline.")
 
-    except (ValueError, TypeError):
-        return notify("Invalid evaluation scores.", True)
+    except (ValueError, OverflowError) as exc:
+        return notify(str(exc), True)
 
     with get_db() as db:
+        if challenge_id is None:
+            db.execute("""
+                INSERT INTO challenges
+                (title, track, description, deliverables,
+                 deadline, prize_usd, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                title, track, description, deliverables,
+                deadline or None, prize, status
+            ))
+        else:
+            row = db.execute(
+                "SELECT id FROM challenges WHERE id = ?",
+                (challenge_id,)
+            ).fetchone()
 
-        submission = db.execute("""
-            SELECT id FROM submissions
-            WHERE participant_id = ?
-        """, (participant_id,)).fetchone()
+            if row is None:
+                return notify("Challenge not found.", True)
 
-        if not submission:
-            return notify(
-                "Only submitted projects may be evaluated.",
-                True
-            )
-
-        db.execute("""
-            INSERT INTO evaluations (
-                participant_id, technical_accuracy,
-                problem_solving, presentation,
-                originality, documentation,
-                total_score
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(participant_id)
-            DO UPDATE SET
-                technical_accuracy=excluded.technical_accuracy,
-                problem_solving=excluded.problem_solving,
-                presentation=excluded.presentation,
-                originality=excluded.originality,
-                documentation=excluded.documentation,
-                total_score=excluded.total_score,
-                evaluated_at=CURRENT_TIMESTAMP
-        """, (
-            participant_id,
-            scores["technical_accuracy"],
-            scores["problem_solving"],
-            scores["presentation"],
-            scores["originality"],
-            scores["documentation"],
-            total
-        ))
+            db.execute("""
+                UPDATE challenges SET
+                    title=?, track=?, description=?,
+                    deliverables=?, deadline=?,
+                    prize_usd=?, status=?
+                WHERE id=?
+            """, (
+                title, track, description, deliverables,
+                deadline or None, prize, status,
+                challenge_id
+            ))
 
         db.commit()
 
-    return notify(f"Evaluation saved: {total}/100.")
+    return notify("Challenge saved successfully.")
 
 
-# ================================================
-# APPLICATION START
-# ================================================
+# =============================================
+# RUN BRIDGELAB V6
+# =============================================
 
 if __name__ == "__main__":
     initialize_database()
 
     print("=" * 48)
-    print("BRIDGELAB CHALLENGE CONTROL V4")
+    print("BRIDGELAB V6 — PARTICIPANT WORKSPACE")
     print("=" * 48)
-    print("Administrator login enabled")
-    print("Website: http://127.0.0.1:5001")
-    print("Environment: LOCAL DEVELOPMENT")
+    print("Admin: http://127.0.0.1:5001")
+    print("Participant: http://127.0.0.1:5001/participant/login")
+    print("Catalog: http://127.0.0.1:5001/challenges")
+    print("LOCAL DEMONSTRATION ONLY")
     print("=" * 48)
 
     app.run(
