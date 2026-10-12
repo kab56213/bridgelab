@@ -1,0 +1,9 @@
+product_id,product_name,category,opening_units,received_units,units_sold,closing_units,reorder_point
+P01,Rice 5kg,Groceries,200,243,142,301,42
+P02,Cooking Oil 2L,Groceries,160,149,127,182,46
+P03,Laundry Detergent,Household,130,192,91,231,50
+P04,Toilet Tissue 12-pack,Household,110,222,160,172,64
+P05,Shampoo,Personal Care,100,196,133,163,42
+P06,Soap 4-pack,Personal Care,155,251,155,251,57
+P07,Bottled Water 12-pack,Groceries,170,233,150,253,62
+P08,Notebook Pack,Stationery,80,181,115,146,58

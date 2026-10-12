@@ -1,0 +1,121 @@
+customer_id,segment,acquisition_channel,signup_month
+C001,Small Business,Walk-in,2026-01
+C002,Student,Walk-in,2026-03
+C003,Student,Social Media,2026-02
+C004,Student,Social Media,2026-01
+C005,Family,Walk-in,2026-03
+C006,Professional,Flyer,2026-01
+C007,Family,Walk-in,2026-02
+C008,Professional,Flyer,2026-03
+C009,Student,Referral,2026-03
+C010,Student,Walk-in,2026-02
+C011,Small Business,Referral,2026-01
+C012,Professional,Walk-in,2026-01
+C013,Professional,Social Media,2026-02
+C014,Professional,Social Media,2026-02
+C015,Small Business,Walk-in,2026-02
+C016,Student,Flyer,2026-03
+C017,Professional,Walk-in,2026-01
+C018,Professional,Social Media,2026-01
+C019,Student,Referral,2026-02
+C020,Student,Flyer,2026-01
+C021,Professional,Flyer,2026-01
+C022,Small Business,Flyer,2026-01
+C023,Student,Flyer,2026-01
+C024,Student,Walk-in,2026-02
+C025,Family,Social Media,2026-01
+C026,Professional,Flyer,2026-02
+C027,Professional,Walk-in,2026-03
+C028,Family,Social Media,2026-02
+C029,Student,Flyer,2026-03
+C030,Student,Social Media,2026-03
+C031,Student,Walk-in,2026-01
+C032,Student,Social Media,2026-01
+C033,Small Business,Social Media,2026-02
+C034,Student,Social Media,2026-03
+C035,Professional,Social Media,2026-03
+C036,Family,Flyer,2026-02
+C037,Professional,Flyer,2026-01
+C038,Professional,Walk-in,2026-01
+C039,Family,Walk-in,2026-03
+C040,Family,Flyer,2026-03
+C041,Small Business,Social Media,2026-02
+C042,Small Business,Flyer,2026-02
+C043,Professional,Flyer,2026-01
+C044,Professional,Social Media,2026-03
+C045,Student,Flyer,2026-01
+C046,Family,Flyer,2026-01
+C047,Student,Flyer,2026-01
+C048,Small Business,Social Media,2026-01
+C049,Student,Social Media,2026-03
+C050,Student,Social Media,2026-01
+C051,Family,Flyer,2026-02
+C052,Small Business,Walk-in,2026-03
+C053,Professional,Social Media,2026-03
+C054,Student,Referral,2026-02
+C055,Student,Referral,2026-03
+C056,Small Business,Walk-in,2026-02
+C057,Family,Referral,2026-03
+C058,Family,Walk-in,2026-01
+C059,Student,Referral,2026-01
+C060,Professional,Flyer,2026-01
+C061,Family,Walk-in,2026-03
+C062,Professional,Referral,2026-02
+C063,Student,Referral,2026-02
+C064,Student,Social Media,2026-01
+C065,Student,Walk-in,2026-02
+C066,Family,Referral,2026-03
+C067,Small Business,Referral,2026-03
+C068,Professional,Walk-in,2026-03
+C069,Small Business,Referral,2026-02
+C070,Small Business,Flyer,2026-03
+C071,Family,Referral,2026-03
+C072,Small Business,Referral,2026-02
+C073,Small Business,Social Media,2026-01
+C074,Small Business,Flyer,2026-02
+C075,Professional,Referral,2026-01
+C076,Family,Flyer,2026-01
+C077,Student,Walk-in,2026-02
+C078,Family,Flyer,2026-03
+C079,Student,Walk-in,2026-03
+C080,Professional,Referral,2026-01
+C081,Professional,Walk-in,2026-03
+C082,Family,Walk-in,2026-03
+C083,Professional,Flyer,2026-03
+C084,Family,Walk-in,2026-02
+C085,Small Business,Walk-in,2026-01
+C086,Professional,Social Media,2026-01
+C087,Small Business,Flyer,2026-01
+C088,Student,Social Media,2026-02
+C089,Family,Social Media,2026-01
+C090,Student,Social Media,2026-02
+C091,Family,Flyer,2026-03
+C092,Student,Referral,2026-01
+C093,Family,Walk-in,2026-01
+C094,Family,Walk-in,2026-01
+C095,Professional,Social Media,2026-01
+C096,Student,Social Media,2026-03
+C097,Professional,Social Media,2026-03
+C098,Family,Walk-in,2026-01
+C099,Family,Flyer,2026-02
+C100,Family,Walk-in,2026-01
+C101,Family,Flyer,2026-03
+C102,Small Business,Walk-in,2026-02
+C103,Student,Referral,2026-03
+C104,Student,Referral,2026-03
+C105,Professional,Walk-in,2026-01
+C106,Student,Referral,2026-01
+C107,Student,Referral,2026-03
+C108,Student,Referral,2026-01
+C109,Small Business,Walk-in,2026-02
+C110,Student,Walk-in,2026-02
+C111,Student,Walk-in,2026-01
+C112,Family,Social Media,2026-02
+C113,Professional,Referral,2026-02
+C114,Professional,Social Media,2026-01
+C115,Small Business,Social Media,2026-01
+C116,Professional,Social Media,2026-03
+C117,Student,Social Media,2026-02
+C118,Professional,Walk-in,2026-03
+C119,Family,Walk-in,2026-02
+C120,Professional,Referral,2026-03
