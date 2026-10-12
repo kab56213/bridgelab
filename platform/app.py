@@ -35,6 +35,10 @@ if not SECRET_PATH.exists():
     SECRET_PATH.write_text(secrets.token_hex(32))
 
 app = Flask(__name__)
+
+from resource_center import resource_center
+app.register_blueprint(resource_center)
+
 app.secret_key = SECRET_PATH.read_text().strip()
 
 app.config.update(
@@ -1095,6 +1099,14 @@ PARTICIPANT_BODY = """
         </span>
 
         <h3>{{ e.title }}</h3>
+        
+        {% if e.id == 2 %}
+            <a class="btn yellow"
+                href="{{ url_for('resource_center.resource_page', challenge_id=e.id) }}">
+                OPEN CHALLENGE RESOURCES →
+            </a>
+        {% endif %}
+
 
         <span class="pill">
             {{ e.chosen_track or 'Track not selected' }}
