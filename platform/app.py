@@ -1,42 +1,44 @@
 
 """
-BridgeLab V10
-Participant Progress Tracker
+BridgeLab V11 — Evaluation Improvements
 
-Preserves the existing BridgeLab application.
+Includes:
+- V9 participant file management
+- V10 project progress tracking
+- V11 mandatory evaluation feedback
+- Protection of unfinished evaluation results
 
-Features:
-- Project file management
-- Live challenge progress
-- Resource access tracking
-- Submission tracking
-- Evaluation tracking
-
-Local demonstration only.
+Preserves the existing BridgeLab database and modules.
+LOCAL DEMONSTRATION ONLY.
 """
+
+from functools import wraps
+
+from flask import (
+    session, request, redirect, url_for
+)
 
 import app_core
 
-from flask import session
-from progress_tracker import get_progress, initialize_progress
+from progress_tracker import (
+    get_progress,
+    initialize_progress
+)
+
+from review_rules import validate_review_form
 
 
 # =============================================
-# USE EXISTING BRIDGELAB APPLICATION
+# EXISTING BRIDGELAB APPLICATION
 # =============================================
 
 app = app_core.app
-
-
-# =============================================
-# INITIALIZE PROGRESS TRACKING
-# =============================================
 
 initialize_progress()
 
 
 # =============================================
-# V9 — ORIGINAL PARTICIPANT FILE LIST
+# V9 — FILE MANAGEMENT
 # =============================================
 
 old_file_list = '''            {% for f in e.files %}
@@ -48,10 +50,6 @@ old_file_list = '''            {% for f in e.files %}
             </p>
             {% endfor %}'''
 
-
-# =============================================
-# V9 — UPDATED FILE MANAGEMENT
-# =============================================
 
 new_file_list = '''            {% for f in e.files %}
 
@@ -89,11 +87,9 @@ new_file_list = '''            {% for f in e.files %}
                            name="_csrf"
                            value="{{ csrf }}">
 
-                    <button class="btn"
-                            type="submit">
+                    <button class="btn" type="submit">
                         REMOVE FILE
                     </button>
-
                 </form>
 
                 {% endif %}
@@ -103,14 +99,10 @@ new_file_list = '''            {% for f in e.files %}
             {% endfor %}'''
 
 
-# =============================================
-# APPLY V9 FILE MANAGEMENT
-# =============================================
-
 if app_core.PARTICIPANT_BODY.count(old_file_list) != 1:
     raise RuntimeError(
-        "Original participant file list not found. "
-        "Check platform/app_core.py."
+        "Original participant file list not found "
+        "in app_core.py."
     )
 
 app_core.PARTICIPANT_BODY = (
@@ -123,15 +115,10 @@ app_core.PARTICIPANT_BODY = (
 
 
 # =============================================
-# V10 — PROJECT PROGRESS CALCULATIONS
+# V10 — LIVE PROJECT PROGRESS
 # =============================================
 
 def participant_progress(challenge_id):
-    """
-    Return progress only for the authenticated
-    participant's own challenge enrollment.
-    """
-
     if session.get("role") != "participant":
         return None
 
@@ -148,19 +135,10 @@ def participant_progress(challenge_id):
 
 @app.context_processor
 def inject_progress_tracker():
-    """
-    Make progress_for() available inside
-    BridgeLab Jinja templates.
-    """
-
     return {
         "progress_for": participant_progress
     }
 
-
-# =============================================
-# V10 — PROGRESS TRACKER DESIGN
-# =============================================
 
 progress_template = '''
 
@@ -193,7 +171,7 @@ progress_template = '''
                     </div>
 
                     <h4 style="
-                        font: bold 22px Georgia,serif;
+                        font:bold 22px Georgia,serif;
                         margin:9px 0;
                     ">
                         Your Project Progress
@@ -206,7 +184,6 @@ progress_template = '''
                 ">
                     {{ progress.percent }}%
                 </div>
-
             </div>
 
             <p style="
@@ -215,8 +192,7 @@ progress_template = '''
                 margin:10px 0;
             ">
                 {{ progress.completed }}
-                of
-                {{ progress.total }}
+                of {{ progress.total }}
                 milestones completed
             </p>
 
@@ -236,79 +212,56 @@ progress_template = '''
 
             </div>
 
-            <div>
+            {% for stage in progress.stages %}
 
-                {% for stage in progress.stages %}
+            <div style="
+                display:flex;
+                align-items:flex-start;
+                gap:12px;
+                padding:12px 0;
+                border-bottom:1px dashed #c4c5c3;
+            ">
 
-                <div style="
-                    display:flex;
-                    align-items:flex-start;
-                    gap:12px;
-                    padding:12px 0;
-                    border-bottom:1px dashed #c4c5c3;
-                ">
+                {% if stage.complete %}
 
-                    {% if stage.complete %}
+                <span style="
+                    background:#c9edda;
+                    border:1px solid #192640;
+                    padding:6px;
+                    min-width:28px;
+                    text-align:center;
+                ">✓</span>
+
+                {% else %}
+
+                <span style="
+                    background:#f4f0e7;
+                    border:1px solid #192640;
+                    padding:6px;
+                    min-width:28px;
+                    text-align:center;
+                ">○</span>
+
+                {% endif %}
+
+                <div>
+                    <strong>{{ stage.label }}</strong>
 
                     <div style="
-                        background:#c9edda;
-                        border:1px solid #192640;
-                        min-width:26px;
-                        height:26px;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        font-weight:bold;
+                        font:11px Courier New,monospace;
+                        color:#687385;
+                        margin-top:5px;
                     ">
-                        ✓
+                        {% if stage.complete %}
+                            COMPLETED
+                        {% else %}
+                            NOT YET COMPLETED
+                        {% endif %}
                     </div>
-
-                    {% else %}
-
-                    <div style="
-                        background:#f4f0e7;
-                        border:1px solid #192640;
-                        min-width:26px;
-                        height:26px;
-                        display:flex;
-                        align-items:center;
-                        justify-content:center;
-                        font-weight:bold;
-                    ">
-                        ○
-                    </div>
-
-                    {% endif %}
-
-                    <div style="flex:1;">
-
-                        <div style="
-                            font-weight:bold;
-                            margin-bottom:5px;
-                        ">
-                            {{ stage.label }}
-                        </div>
-
-                        <div style="
-                            font:11px Courier New,monospace;
-                            color:#687385;
-                        ">
-
-                            {% if stage.complete %}
-                                COMPLETED
-                            {% else %}
-                                NOT YET COMPLETED
-                            {% endif %}
-
-                        </div>
-
-                    </div>
-
                 </div>
-
-                {% endfor %}
-
             </div>
+
+            {% endfor %}
 
             {% if progress.percent == 100 %}
 
@@ -329,7 +282,6 @@ progress_template = '''
                 border:1px solid #d3b765;
                 padding:13px;
                 margin-top:19px;
-                font-size:13px;
             ">
                 Continue working through your remaining
                 project milestones.
@@ -344,16 +296,11 @@ progress_template = '''
 '''
 
 
-# =============================================
-# INSERT TRACKER INTO MY PROJECTS
-# =============================================
-
 challenge_title = '        <h3>{{ e.title }}</h3>'
 
 if app_core.PARTICIPANT_BODY.count(challenge_title) != 1:
     raise RuntimeError(
-        "Participant challenge title not found. "
-        "Check platform/app_core.py."
+        "Participant challenge heading not found."
     )
 
 app_core.PARTICIPANT_BODY = (
@@ -366,7 +313,158 @@ app_core.PARTICIPANT_BODY = (
 
 
 # =============================================
-# START BRIDGELAB V10
+# V11 — HIDE UNFINISHED EVALUATIONS
+# =============================================
+
+old_score_condition = (
+    "{% if e.score is not none %}"
+)
+
+new_score_condition = (
+    "{% if e.review_status == 'Reviewed' "
+    "and e.score is not none %}"
+)
+
+if app_core.PARTICIPANT_BODY.count(
+    old_score_condition
+) != 1:
+    raise RuntimeError(
+        "Participant score condition not found."
+    )
+
+app_core.PARTICIPANT_BODY = (
+    app_core.PARTICIPANT_BODY.replace(
+        old_score_condition,
+        new_score_condition,
+        1
+    )
+)
+
+
+# =============================================
+# V11 — REVIEW INSTRUCTIONS
+# =============================================
+
+old_feedback_label = (
+    '<label>FEEDBACK</label>'
+)
+
+new_feedback_label = '''
+        <label>FEEDBACK</label>
+
+        <p style="
+            background:#fff0c4;
+            border:1px solid #d3b765;
+            padding:12px;
+            line-height:1.6;
+        ">
+            <strong>Review Policy:</strong>
+            To finalize a project as Reviewed, provide
+            at least 30 characters of written feedback.
+
+            Submitted and Under Review evaluations
+            may be saved without feedback.
+
+            Unfinished scores are not displayed to
+            participants.
+        </p>
+'''
+
+if app_core.REVIEW_BODY.count(
+    old_feedback_label
+) != 1:
+    raise RuntimeError(
+        "Administrator feedback field not found."
+    )
+
+app_core.REVIEW_BODY = (
+    app_core.REVIEW_BODY.replace(
+        old_feedback_label,
+        new_feedback_label,
+        1
+    )
+)
+
+
+# =============================================
+# V11 — SECURE EVALUATION VALIDATION
+# =============================================
+
+original_save_review = app.view_functions.get(
+    "save_review"
+)
+
+if original_save_review is None:
+    raise RuntimeError(
+        "Administrator review endpoint not found."
+    )
+
+
+@wraps(original_save_review)
+def validated_save_review(*args, **kwargs):
+    """
+    Keep the existing administrator and CSRF
+    protections, then validate review fields.
+
+    All successful saves still use the original
+    BridgeLab review handler.
+    """
+
+    # Preserve the original authorization behavior
+    # for unauthenticated or non-admin sessions.
+    if session.get("role") != "admin":
+        return original_save_review(*args, **kwargs)
+
+    admin_id = session.get("user_id")
+
+    if not isinstance(admin_id, int):
+        return original_save_review(*args, **kwargs)
+
+    # Confirm the administrator actually exists.
+    with app_core.get_db() as db:
+        admin = db.execute(
+            "SELECT id FROM admins WHERE id=?",
+            (admin_id,)
+        ).fetchone()
+
+    if admin is None:
+        return original_save_review(*args, **kwargs)
+
+    # Verify CSRF before performing review validation.
+    app_core.check_csrf()
+
+    error = validate_review_form(request.form)
+
+    if error is not None:
+        submission_id = kwargs.get(
+            "submission_id"
+        )
+
+        if submission_id is None and args:
+            submission_id = args[0]
+
+        return redirect(
+            url_for(
+                "review_submission",
+                submission_id=submission_id,
+                error=error
+            )
+        )
+
+    # Delegate to the existing authorized endpoint.
+    return original_save_review(
+        *args,
+        **kwargs
+    )
+
+
+app.view_functions[
+    "save_review"
+] = validated_save_review
+
+
+# =============================================
+# START BRIDGELAB V11
 # =============================================
 
 if __name__ == "__main__":
@@ -374,7 +472,7 @@ if __name__ == "__main__":
     print("=" * 48)
 
     print(
-        "BRIDGELAB V10 — PROJECT PROGRESS TRACKER"
+        "BRIDGELAB V11 — EVALUATION IMPROVEMENTS"
     )
 
     print(
