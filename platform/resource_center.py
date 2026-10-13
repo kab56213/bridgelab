@@ -2,6 +2,7 @@
 from pathlib import Path
 from flask import Blueprint, abort, send_file, session
 import sqlite3
+from progress_tracker import mark_resources_accessed
 
 ROOT = Path(__file__).resolve().parent.parent
 DATABASE = ROOT / "instance" / "bridgelab.db"
@@ -84,6 +85,10 @@ def resource_page(challenge_id):
         abort(404)
 
     enrollment = get_enrollment(challenge_id)
+    mark_resources_accessed(
+    session["user_id"],
+    challenge_id
+    )
 
     files = [
         {"key": key, "name": name}
