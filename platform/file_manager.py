@@ -1,9 +1,9 @@
-
+from database import database_connection
 from pathlib import Path
 from datetime import date
 from flask import (
     Blueprint, request, session,
-    redirect, url_for, abort, current_app
+    redirect, url_for, abort
 )
 import sqlite3
 import hmac
@@ -45,7 +45,7 @@ def remove_file(file_id):
     ):
         abort(400, "Invalid form token.")
 
-    with sqlite3.connect(DATABASE, timeout=10) as db:
+    with database_connection(DATABASE, timeout=10) as db:
         db.row_factory = sqlite3.Row
         db.execute("PRAGMA foreign_keys = ON")
 
@@ -117,7 +117,7 @@ def remove_file(file_id):
         target.unlink(missing_ok=True)
     except OSError:
         # Database removal succeeded; cleanup can be retried.
-        current_app.logger.warning(
+        file_manager.logger.warning(
             "File metadata removed but file cleanup failed: %s",
             row["stored_name"]
         )

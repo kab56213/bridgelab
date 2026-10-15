@@ -1,4 +1,4 @@
-
+from database import database_connection
 from pathlib import Path
 from functools import wraps
 from datetime import date, timedelta
@@ -94,10 +94,7 @@ LOGIN_ATTEMPTS = {}
 # =============================================
 
 def get_db():
-    db = sqlite3.connect(DB_PATH, timeout=10)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA foreign_keys=ON")
-    return db
+    return database_connection(DB_PATH, timeout=10)
 
 
 def initialize_database():
@@ -694,7 +691,7 @@ def render(body, title="BridgeLab", **data):
                 BUILD SKILLS / SOLVE PROBLEMS / CREATE IMPACT
             </div>
         </div>
-        <div class="stamp">SYSTEM V7.0 / DEMO</div>
+        <div class="stamp">BRIDGELAB / PILOT PREVIEW</div>
     </div>
 """ + body + """
 <footer>
@@ -992,7 +989,7 @@ PUBLIC_BODY = """
 </div>
 
 <div class="warning">
-    LOCAL PROTOTYPE ONLY — not accepting real applicants.
+    BRIDGELAB PILOT PREVIEW — Public registration and live awards are not yet available.
 </div>
 
 <div class="heading">
@@ -1431,6 +1428,8 @@ def participant_enroll():
 @app.route("/participant/submit", methods=["POST"])
 @required_role("participant")
 def participant_submit():
+    from upload_security import validate_upload_bytes
+
     check_csrf()
 
     try:
@@ -1477,19 +1476,6 @@ def participant_submit():
             "Upload at most five files.",
             True
         )
-
-    for f in incoming:
-        ext = Path(f.filename).suffix.lower()
-
-        if (
-            ext not in ALLOWED
-            or not secure_filename(f.filename)
-        ):
-            return message(
-                "participant_dashboard",
-                "Unsupported file type or filename.",
-                True
-            )
 
     uid = session["user_id"]
     saved = []
@@ -1554,27 +1540,27 @@ def participant_submit():
             validated = []
 
             for f in incoming:
-                f.stream.seek(0, 2)
-                size = f.stream.tell()
-                f.stream.seek(0)
-
-                if size == 0 or size > MAX_FILE:
+                # Read at most 10 MB + 1 byte, never an unlimited stream.
+                data = f.stream.read(MAX_FILE + 1)
+                if len(data) > MAX_FILE:
                     return message(
                         "participant_dashboard",
-                        "Each file must be between "
-                        "1 byte and 10 MB.",
+                        "Each file must be 10 MB or smaller.",
                         True
                     )
 
-                original = secure_filename(f.filename)[:180]
-                stored = (
-                    uuid4().hex
-                    + Path(original).suffix.lower()
-                )
+                valid, reason = validate_upload_bytes(f.filename, data)
+                if not valid:
+                    return message(
+                        "participant_dashboard",
+                        f"Upload rejected: {reason}",
+                        True
+                    )
 
-                validated.append(
-                    (f, original, stored, size)
-                )
+                original_name = secure_filename(f.filename)
+                stored = uuid4().hex + Path(original_name).suffix.lower()
+                f.stream.seek(0)
+                validated.append((f, original_name, stored, len(data)))
 
             db.execute(
                 """
@@ -1619,8 +1605,8 @@ def participant_submit():
             for f, original, stored, size in validated:
                 target = UPLOADS / stored
 
-                f.save(target)
                 saved.append(target)
+                f.save(target)
 
                 db.execute(
                     """
@@ -1643,9 +1629,12 @@ def participant_submit():
 
             db.commit()
 
-    except (OSError, sqlite3.Error):
+    except (OSError, sqlite3.Error, ValueError):
         for target in saved:
-            target.unlink(missing_ok=True)
+            try:
+                target.unlink(missing_ok=True)
+            except OSError:
+                app.logger.exception("Could not remove partial upload")
 
         app.logger.exception(
             "Submission storage error"

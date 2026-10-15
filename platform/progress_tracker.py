@@ -14,18 +14,14 @@ Local demonstration only.
 from datetime import datetime, timezone
 import sqlite3
 from pathlib import Path
-
+from database import database_connection
 
 ROOT = Path(__file__).resolve().parent.parent
 DATABASE = ROOT / "instance" / "bridgelab.db"
 
 
 def get_db():
-    db = sqlite3.connect(DATABASE, timeout=10)
-    db.row_factory = sqlite3.Row
-    db.execute("PRAGMA foreign_keys=ON")
-    return db
-
+    return database_connection(DATABASE, timeout=10)
 
 def initialize_progress():
     """Create progress tracking table without deleting data."""

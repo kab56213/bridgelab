@@ -148,3 +148,17 @@ reports/confidential/
 # ==========================================
 # END OF BRIDGELAB GITIGNORE
 # ==========================================
+
+# BridgeLab development diagnostics
+account_test_results.txt
+connection_trace.txt
+
+# Local application backups
+platform/app_backup.py
+
+# SQLite temporary files
+*.db-wal
+*.db-shm
+
+# Flask secret file
+.flask_secret

@@ -1,4 +1,4 @@
-
+from database import database_connection
 from pathlib import Path
 from flask import Blueprint, abort, send_file, session
 import sqlite3
@@ -56,7 +56,7 @@ def get_enrollment(challenge_id):
     if not isinstance(participant_id, int):
         abort(403)
 
-    with sqlite3.connect(DATABASE) as db:
+    with database_connection(DATABASE) as db:
         db.row_factory = sqlite3.Row
 
         enrollment = db.execute(
